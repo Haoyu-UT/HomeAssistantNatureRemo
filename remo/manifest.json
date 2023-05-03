@@ -1,0 +1,17 @@
+{
+  "domain": "remo",
+  "name": "nature_remo",
+  "codeowners": [
+    "@Haoyu-UT"
+  ],
+  "version": "0.0.1",
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://www.home-assistant.io/integrations/remo",
+  "homekit": {},
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": []
+}
