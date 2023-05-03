@@ -46,13 +46,13 @@ class MyCoordinator(DataUpdateCoordinator):
             update_method=self.api.fecth_sensor_data,
         )
 
+
 class TemperatureSensor(CoordinatorEntity, SensorEntity):
     """Class providing sensor function"""
 
     _attr_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_has_entity_name = True
-    _attr_name = "Remo Temperature Sensor"
     _attr_should_poll = True
     _attr_device_info = {}
 
@@ -60,9 +60,12 @@ class TemperatureSensor(CoordinatorEntity, SensorEntity):
         # this step sets self.coordinator
         super().__init__(coordinator)
         self._attr_unique_id = mac
+        self._attr_name = f"Remo Temperature Sensor Mac: {mac}"
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.coordinator.data[self._attr_unique_id].temperature
+        self._attr_native_value = self.coordinator.data[
+            self._attr_unique_id
+        ].temperature
         self.async_write_ha_state()
