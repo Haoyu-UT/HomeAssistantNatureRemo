@@ -2,7 +2,11 @@
 from datetime import timedelta
 import logging
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import LIGHT_LUX, PERCENTAGE, UnitOfPower, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
@@ -68,6 +72,7 @@ class TemperatureSensor(CoordinatorEntity, SensorEntity):
     _attr_should_poll = True
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, mac, name) -> None:
         # this step sets self.coordinator
@@ -92,6 +97,7 @@ class HumiditySensor(CoordinatorEntity, SensorEntity):
     _attr_should_poll = True
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.HUMIDITY
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, mac, name) -> None:
         # this step sets self.coordinator
@@ -116,6 +122,7 @@ class IlluminanceSensor(CoordinatorEntity, SensorEntity):
     _attr_should_poll = True
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.ILLUMINANCE
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, mac, name) -> None:
         # this step sets self.coordinator
@@ -175,7 +182,8 @@ class PowerMeter(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = True
     _attr_device_info = {}
-    _attr_device_class = SensorDeviceClass.POWER
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, unique_id, name) -> None:
         # this step sets self.coordinator
