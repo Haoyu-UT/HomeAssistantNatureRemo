@@ -4,11 +4,15 @@ import collections
 import logging
 
 import requests
+
 from .const import AuthError
 
 Api = collections.namedtuple("Api", ("url", "method"))
 SensorData = collections.namedtuple(
     "SensorData", ("temperature", "humidity", "illuminance", "movement")
+)
+Appliances = collections.namedtuple(
+    "Appliances", ("ac", "light", "powermeter", "others")
 )
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,14 +51,12 @@ class RemoAPI:
             for device_response in response:
                 if "newest_events" in device_response:
                     event = device_response["newest_events"]
-                    temperature = event["te"]["val"] if "te" in event else ""
-                    humidity = event["hu"]["val"] if "hu" in event else ""
-                    illuminance = event["il"]["val"] if "il" in event else ""
-                    movement = event["mo"]["created_at"] if "mo" in event else ""
+                    temperature = event["te"]["val"] if "te" in event else None
+                    humidity = event["hu"]["val"] if "hu" in event else None
+                    illuminance = event["il"]["val"] if "il" in event else None
+                    movement = event["mo"]["created_at"] if "mo" in event else None
                     mac = device_response["mac_address"]
-                    data[mac] = SensorData(
-                        temperature, humidity, illuminance, movement
-                    )
+                    data[mac] = SensorData(temperature, humidity, illuminance, movement)
             return data
         else:
             raise AuthError
@@ -69,6 +71,30 @@ class RemoAPI:
                 name = device_response["name"]
                 data[mac] = name
             return data
+        else:
+            raise AuthError
+
+    async def fetch_appliance(self) -> Appliances:
+        """fetch all registered appliances"""
+        ac_list, light_list, powermeter_list, others_list = [], [], [], []
+        response = await self.get(self.apis["appliances"])
+        if response is not None:
+            for appliance_response in response:
+                properties = {k: v for k, v in appliance_response.items() if v}
+                if "aircon" in properties:
+                    ac_list.append(properties)
+                elif "light" in properties:
+                    light_list.append(properties)
+                elif "smart_meter" in properties:
+                    if any(
+                        p["epc"] == 231
+                        for p in properties["smart_meter"]["echonetlite_properties"]
+                    ):
+                        powermeter_list.append(properties)
+                else:
+                    others_list.append(properties)
+
+            return Appliances(ac_list, light_list, powermeter_list, others_list)
         else:
             raise AuthError
 
