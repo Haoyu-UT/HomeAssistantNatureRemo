@@ -13,7 +13,8 @@ By design it should operate with arbitrary number of remo devices linked with th
 
 ## Pros
 * UI-based configuration🤗
-
+* Support for multiple remo devices
+* Tested on latest version of Home Assistant (2023.5.0)
 
 ## Installation
 Copy the folder `remo` into `<config directory>/custom_components/`. If you do not have access to the `<config directory>`, you can install the `Samba share` add-on and access it from SAMBA. Restart Home Assistant and add the integration `nature_remo`. During the process you will be asked to enter your API access token; you can get one from [here](https://home.nature.global/).
