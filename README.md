@@ -3,8 +3,12 @@ An integration for accessing Nature Remo sensors from [Home Assistant](https://w
 
 ## Functionality
 It currently only supports fetching sensor data from [Nature Remo API](https://swagger.nature.global/), and I'm still working on more functionalities.
-
-By design it should operate with arbitrary number of remo devices linked with the token, but I don't have multiple ones so if you encounter any bugs please create an issue.
+* temperature sensor
+* humidity sensor
+* illuminance sensor
+* movement sensor
+* power meter
+By design it should operate with arbitrary number of remo devices and appliances linked with the token, but I don't have multiple ones so if you encounter any bugs please create an issue.
 
 ## Pros
 * UI-based configuration🤗
