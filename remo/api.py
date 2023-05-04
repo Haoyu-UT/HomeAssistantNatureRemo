@@ -8,7 +8,7 @@ from .const import AuthError
 
 Api = collections.namedtuple("Api", ("url", "method"))
 SensorData = collections.namedtuple(
-    "SensorData", ("temperature", "humidity", "illumination", "movement")
+    "SensorData", ("temperature", "humidity", "illuminance", "movement")
 )
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,12 +49,25 @@ class RemoAPI:
                     event = device_response["newest_events"]
                     temperature = event["te"]["val"] if "te" in event else ""
                     humidity = event["hu"]["val"] if "hu" in event else ""
-                    illumination = event["il"]["val"] if "il" in event else ""
-                    movement = event["mo"]["val"] if "mo" in event else ""
+                    illuminance = event["il"]["val"] if "il" in event else ""
+                    movement = event["mo"]["created_at"] if "mo" in event else ""
                     mac = device_response["mac_address"]
                     data[mac] = SensorData(
-                        temperature, humidity, illumination, movement
+                        temperature, humidity, illuminance, movement
                     )
+            return data
+        else:
+            raise AuthError
+
+    async def fetch_device_name(self) -> dict[str, str]:
+        """fetch device name for all remo devices"""
+        data = {}
+        response = await self.get(self.apis["devices"])
+        if response is not None:
+            for device_response in response:
+                mac = device_response["mac_address"]
+                name = device_response["name"]
+                data[mac] = name
             return data
         else:
             raise AuthError
