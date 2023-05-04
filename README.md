@@ -8,7 +8,8 @@ It currently only supports fetching sensor data from [Nature Remo API](https://s
 * illuminance sensor
 * movement sensor
 * power meter
-By design it should operate with arbitrary number of remo devices and appliances linked with the token, but I don't have multiple ones so if you encounter any bugs please create an issue.
+
+By design it should operate with arbitrary number of remo devices linked with the token, but I don't have multiple ones so if you encounter any bugs please create an issue.
 
 ## Pros
 * UI-based configuration🤗
