@@ -1,19 +1,19 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "data": {
-          "token": "[%key:common::config_flow::data::password%]"
+    "config": {
+      "step": {
+        "user": {
+          "data": {
+            "token": "[%key:common::config_flow::data::password%]"
+          }
         }
+      },
+      "error": {
+        "network_error": "[%key:common::config_flow::error::cannot_connect%]",
+        "invalid_token": "[%key:common::config_flow::error::invalid_auth%]",
+        "unknown": "[%key:common::config_flow::error::unknown%]"
+      },
+      "abort": {
+        "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
       }
-    },
-    "error": {
-      "network_error": "[%key:common::config_flow::error::cannot_connect%]",
-      "invalid_token": "[%key:common::config_flow::error::invalid_auth%]",
-      "unknown": "[%key:common::config_flow::error::unknown%]"
-    },
-    "abort": {
-      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
     }
   }
-}

@@ -25,9 +25,9 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up nature_remo from a config entry."""
+    """Set up nature remo sensors from a config entry."""
     sensors = []
-    api: RemoAPI = hass.data[DOMAIN][entry.entry_id]
+    api: RemoAPI = hass.data[DOMAIN][entry.entry_id]["api"]
     sensor_data_dic: dict[str, SensorData] = await api.fecth_sensor_data()
     device_name_dic: dict[str, str] = await api.fetch_device_name()
     coordinator = SensorCoordinator(hass, api)
