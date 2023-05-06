@@ -49,7 +49,9 @@ def extract_ac_properties(properties: dict, sensors: list) -> AC:
     assert properties["aircon"]["tempUnit"] == "c"
     assert "power-off" in properties["aircon"]["range"]["fixedButtons"]
     temperature_unit = UnitOfTemperature.CELSIUS
-    ac_name, ac_id = properties["nickname"], properties["id"]
+    ac_name, remo_name = properties["nickname"], properties["device"]["name"]
+    name = f"{ac_name} @ {remo_name}"
+    ac_id = properties["id"]
     remo_mac = properties["device"]["mac_address"]
     temperature_sensor: Optional[TemperatureSensor] = next(
         (
@@ -93,7 +95,7 @@ def extract_ac_properties(properties: dict, sensors: list) -> AC:
     last_status = extract_last_settings(properties["settings"])
     return AC(
         ac_id,
-        ac_name,
+        name,
         temperature_unit,
         Climate.const.ClimateEntityFeature(feature_flag),
         temperature_sensor,

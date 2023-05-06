@@ -119,12 +119,10 @@ class RemoAPI:
         """Control AC using information from AirConditioner object"""
         data = {
             "button": "power-off" if ac.hvac_mode == "off" else "",
-            "dir": ac.swing_mode,
-            "dirh": "",
-            "mode": MODE_REVERSE_MAP[ac.last_hvac_mode],
-            "temp": str(round(ac.target_temperature)),
-            "temp_unit": "c",
-            "vol": ac.fan_mode,
+            "air_direction": ac.swing_mode,
+            "operation_mode": MODE_REVERSE_MAP[ac.last_hvac_mode],
+            "temperature": str(round(ac.target_temperature)),
+            "air_volume": ac.fan_mode,
         }
         _LOGGER.debug(data)
         return await self.post(self.apis["setac"], [ac.data.id], data)
