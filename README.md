@@ -20,7 +20,7 @@ By design it should operate with arbitrary number of remo devices linked with th
 * Fully UI-based configuration🤗
 * Support for multiple remo devices
 * Air conditioner status set by smartphone APP can be synchronized
-* Memorizing swing mode, air volume, target temperature for each AC mode, so no need to set these settings again when you switch the AC mode.
+* Memorizing swing mode, air volume, target temperature for each AC mode, so no need to set these settings again when you switch the AC mode
 * Tested on latest version of Home Assistant (2023.5.2)
 
 ## Installation
