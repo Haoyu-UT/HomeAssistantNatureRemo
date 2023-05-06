@@ -21,3 +21,123 @@ press:
     entity:
       integration: remo
       domain: button
+
+set_temperature:
+  name: Set temperature
+  description: Set target temperature of climate device.
+  target:
+    entity:
+      integration: remo
+      domain: climate
+      supported_features:
+        - climate.ClimateEntityFeature.TARGET_TEMPERATURE
+  fields:
+    temperature:
+      name: Temperature
+      description: New target temperature for HVAC.
+      filter:
+        supported_features:
+          - climate.ClimateEntityFeature.TARGET_TEMPERATURE
+      selector:
+        number:
+          min: 10
+          max: 40
+          step: 1.0
+          mode: box
+    hvac_mode:
+      name: HVAC mode
+      description: HVAC operation mode to set temperature to.
+      selector:
+        select:
+          options:
+            - label: "Off"
+              value: "off"
+            - label: "Auto"
+              value: "auto"
+            - label: "Cool"
+              value: "cool"
+            - label: "Dry"
+              value: "dry"
+            - label: "Fan Only"
+              value: "fan_only"
+            - label: "Heat"
+              value: "heat"
+
+set_fan_mode:
+  name: Set fan mode
+  description: Set fan operation for climate device.
+  target:
+    entity:
+      integration: remo
+      domain: climate
+      supported_features:
+        - climate.ClimateEntityFeature.FAN_MODE
+  fields:
+    fan_mode:
+      name: Fan mode
+      description: New value of fan mode.
+      required: true
+      example: "low"
+      selector:
+        text:
+
+set_hvac_mode:
+  name: Set HVAC mode
+  description: Set HVAC operation mode for climate device.
+  target:
+    entity:
+      integration: remo
+      domain: climate
+  fields:
+    hvac_mode:
+      name: HVAC mode
+      description: New value of operation mode.
+      selector:
+        select:
+          options:
+            - label: "Off"
+              value: "off"
+            - label: "Auto"
+              value: "auto"
+            - label: "Cool"
+              value: "cool"
+            - label: "Dry"
+              value: "dry"
+            - label: "Fan Only"
+              value: "fan_only"
+            - label: "Heat"
+              value: "heat"
+
+set_swing_mode:
+  name: Set swing mode
+  description: Set swing operation for climate device.
+  target:
+    entity:
+      integration: remo
+      domain: climate
+      supported_features:
+        - climate.ClimateEntityFeature.SWING_MODE
+  fields:
+    swing_mode:
+      name: Swing mode
+      description: New value of swing mode.
+      required: true
+      example: "horizontal"
+      selector:
+        text:
+
+turn_on:
+  name: Turn on
+  description: Turn climate device on.
+  target:
+    entity:
+      integration: remo
+      domain: climate
+
+turn_off:
+  name: Turn off
+  description: Turn climate device off.
+  target:
+    entity:
+      integration: remo
+      domain: climate

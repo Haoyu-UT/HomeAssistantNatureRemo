@@ -19,7 +19,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {"api": RemoAPI(entry.data["token"])}
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    await hass.config_entries.async_forward_entry_setups(entry, [Platform.BUTTON])
+    await hass.config_entries.async_forward_entry_setups(entry, [Platform.BUTTON, Platform.CLIMATE])
     return True
 
 

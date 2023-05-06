@@ -2,7 +2,6 @@
 import asyncio
 import logging
 
-
 from homeassistant.components.button import SERVICE_PRESS, ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,7 +20,6 @@ async def async_setup_entry(
     async_add_entities: entity_platform.AddEntitiesCallback,
 ) -> None:
     """Set up nature remo appliances from a config entry."""
-    _LOGGER.warning("start button setup")
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(
         SERVICE_PRESS,
@@ -31,7 +29,7 @@ async def async_setup_entry(
     entities = []
     api: RemoAPI = hass.data[DOMAIN][entry.entry_id]["api"]
     signal_entities = hass.data[DOMAIN][entry.entry_id]["signal_entities"]
-    appliances = hass.data[DOMAIN][entry.entry_id]["appliances"]
+    appliances = hass.data[DOMAIN][entry.entry_id]["gerenal_appliances"]
     for appliance, signal_entity in zip(appliances, signal_entities):
         entities.append(ApplianceEntity(appliance, signal_entity, api))
     async_add_entities(entities)

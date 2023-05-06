@@ -16,8 +16,8 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
-from .api import Appliances, RemoAPI, SensorData
-from .const import DOMAIN
+from .api import RemoAPI
+from .const import DOMAIN, Appliances, SensorData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,21 +31,25 @@ async def async_setup_entry(
     sensor_data_dic: dict[str, SensorData] = await api.fecth_sensor_data()
     device_name_dic: dict[str, str] = await api.fetch_device_name()
     coordinator = SensorCoordinator(hass, api)
+    hass.data[DOMAIN][entry.entry_id]["sensor_coordinator"] = coordinator
     for mac, sensor_data in sensor_data_dic.items():
-        if sensor_data.temperature is not None:
-            sensors.append(TemperatureSensor(coordinator, mac, device_name_dic[mac]))
-        if sensor_data.humidity is not None:
-            sensors.append(HumiditySensor(coordinator, mac, device_name_dic[mac]))
-        if sensor_data.illuminance is not None:
-            sensors.append(IlluminanceSensor(coordinator, mac, device_name_dic[mac]))
-        if sensor_data.movement is not None:
-            sensors.append(MovementSensor(coordinator, mac, device_name_dic[mac]))
+        device_name = device_name_dic[mac]
+        if (val := sensor_data.temperature) is not None:
+            sensors.append(TemperatureSensor(coordinator, mac, device_name, val))
+        if (val := sensor_data.humidity) is not None:
+            sensors.append(HumiditySensor(coordinator, mac, device_name, val))
+        if val := sensor_data.illuminance is not None:
+            sensors.append(IlluminanceSensor(coordinator, mac, device_name, val))
+        if (val := sensor_data.movement) is not None:
+            sensors.append(MovementSensor(coordinator, mac, device_name, val))
+    coordinator = ApplianceCoordinator(hass, api)
+    hass.data[DOMAIN][entry.entry_id]["appliance_coordinator"] = coordinator
     appliances: Appliances = await api.fetch_appliance()
-    if appliances.powermeter:
-        coordinator = PowerMeterCoordinator(hass, api)
-        for properties in appliances.powermeter:
+    if appliances.electricitymeter:
+        for properties in appliances.electricitymeter:
             unique_id, name = properties["id"], properties["nickname"]
-            sensors.append(PowerMeter(coordinator, unique_id, name))
+            sensors.append(ElectricityMeter(coordinator, unique_id, name))
+    hass.data[DOMAIN][entry.entry_id]["sensors"] = sensors
     async_add_entities(sensors)
 
 
@@ -57,7 +61,7 @@ class SensorCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             _LOGGER,
-            name="Remo API Coordinator",
+            name="Remo API Coordinator for sensors",
             update_interval=timedelta(seconds=60),
             update_method=self.api.fecth_sensor_data,
         )
@@ -74,12 +78,13 @@ class TemperatureSensor(CoordinatorEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, mac, name) -> None:
+    def __init__(self, coordinator, mac, name, init_val) -> None:
         # this step sets self.coordinator
         super().__init__(coordinator)
         self.mac = mac
         self._attr_unique_id = f"Temperature Sensor @ {mac}"
         self._attr_name = f"Temperature Sensor @ {name}"
+        self._attr_native_value = init_val
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -99,12 +104,13 @@ class HumiditySensor(CoordinatorEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.HUMIDITY
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, mac, name) -> None:
+    def __init__(self, coordinator, mac, name, init_val) -> None:
         # this step sets self.coordinator
         super().__init__(coordinator)
         self.mac = mac
         self._attr_unique_id = f"Humidity Sensor @ {mac}"
         self._attr_name = f"Humidity Sensor @ {name}"
+        self._attr_native_value = init_val
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -124,12 +130,13 @@ class IlluminanceSensor(CoordinatorEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.ILLUMINANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, mac, name) -> None:
+    def __init__(self, coordinator, mac, name, init_val) -> None:
         # this step sets self.coordinator
         super().__init__(coordinator)
         self.mac = mac
         self._attr_unique_id = f"Illuminance Sensor @ {mac}"
         self._attr_name = f"Illuminance Sensor @ {name}"
+        self._attr_native_value = init_val
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -146,12 +153,13 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
-    def __init__(self, coordinator, mac, name) -> None:
+    def __init__(self, coordinator, mac, name, init_val) -> None:
         # this step sets self.coordinator
         super().__init__(coordinator)
         self.mac = mac
         self._attr_unique_id = f"Movement Sensor @ {mac}"
         self._attr_name = f"Movement Sensor @ {name}"
+        self._attr_native_value = init_val
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -160,22 +168,22 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
         self.async_write_ha_state()
 
 
-class PowerMeterCoordinator(DataUpdateCoordinator):
-    """Coordinator for polling power meter data"""
+class ApplianceCoordinator(DataUpdateCoordinator):
+    """Coordinator for polling appliance data"""
 
     def __init__(self, hass: HomeAssistant, api: RemoAPI) -> None:
         self.api = api
         super().__init__(
             hass,
             _LOGGER,
-            name="Remo API Coordinator for Power Meter",
-            update_interval=timedelta(seconds=60),
+            name="Remo API Coordinator for appliances",
+            update_interval=timedelta(seconds=30),
             update_method=self.api.fetch_appliance,
         )
 
 
-class PowerMeter(CoordinatorEntity, SensorEntity):
-    """Class providing power meter function"""
+class ElectricityMeter(CoordinatorEntity, SensorEntity):
+    """Class providing electricity meter function"""
 
     _attr_unit_of_measurement = UnitOfPower.WATT
     _attr_native_unit_of_measurement = UnitOfPower.WATT
@@ -196,7 +204,7 @@ class PowerMeter(CoordinatorEntity, SensorEntity):
         """Handle updated data from the coordinator."""
         properties = next(
             p
-            for p in self.coordinator.data.powermeter
+            for p in self.coordinator.data.electricitymeter
             if p["id"] == self._attr_unique_id
         )
         value = next(

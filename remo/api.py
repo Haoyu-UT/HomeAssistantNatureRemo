@@ -1,18 +1,11 @@
 """File for communication with nature remo"""
 import asyncio
-import collections
 import logging
 
 import requests
 
-from .const import NetworkError, Api
+from .const import MODE_REVERSE_MAP, Api, Appliances, NetworkError, SensorData
 
-SensorData = collections.namedtuple(
-    "SensorData", ("temperature", "humidity", "illuminance", "movement")
-)
-Appliances = collections.namedtuple(
-    "Appliances", ("ac", "light", "powermeter", "others")
-)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -38,6 +31,7 @@ class RemoAPI:
             "devices": Api("1/devices", "get"),
             "appliances": Api("1/appliances", "get"),
             "sendir": Api("1/signals/{}/send", "post"),
+            "setac": Api("1/appliances/{}/aircon_settings", "post"),
         }
         self.header = {"Authorization": f"Bearer {self.token}"}
 
@@ -98,7 +92,7 @@ class RemoAPI:
 
     async def fetch_appliance(self) -> Appliances:
         """Fetch all registered appliances"""
-        ac_list, light_list, powermeter_list, others_list = [], [], [], []
+        ac_list, light_list, electricity_meter_list, others_list = [], [], [], []
         response = await self.get(self.apis["appliances"])
 
         for appliance_response in response:
@@ -112,14 +106,28 @@ class RemoAPI:
                     p["epc"] == 231
                     for p in properties["smart_meter"]["echonetlite_properties"]
                 ):
-                    powermeter_list.append(properties)
+                    electricity_meter_list.append(properties)
             else:
                 others_list.append(properties)
-        return Appliances(ac_list, light_list, powermeter_list, others_list)
+        return Appliances(ac_list, light_list, electricity_meter_list, others_list)
 
     async def send_ir_signal(self, signal_id: str):
         """Send ir signal"""
         return await self.post(self.apis["sendir"], [signal_id], {})
+
+    async def send_ac_signal(self, ac):
+        """Control AC using information from AirConditioner object"""
+        data = {
+            "button": "power-off" if ac.hvac_mode == "off" else "",
+            "dir": ac.swing_mode,
+            "dirh": "",
+            "mode": MODE_REVERSE_MAP[ac.last_hvac_mode],
+            "temp": str(round(ac.target_temperature)),
+            "temp_unit": "c",
+            "vol": ac.fan_mode,
+        }
+        _LOGGER.debug(data)
+        return await self.post(self.apis["setac"], [ac.data.id], data)
 
     async def authenticate(self) -> bool:
         """Test if we can authenticate with the host"""

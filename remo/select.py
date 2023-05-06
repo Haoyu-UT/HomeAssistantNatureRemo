@@ -13,8 +13,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, entity_platform
 
-from .api import Appliances, RemoAPI
-from .const import DOMAIN, GeneralAppliance, NoSignalError, Signal
+from .api import RemoAPI
+from .const import DOMAIN, Appliances, GeneralAppliance, NoSignalError, Signal
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,12 +47,9 @@ async def async_setup_entry(
     entities = []
     api: RemoAPI = hass.data[DOMAIN][entry.entry_id]["api"]
     appliances: Appliances = await api.fetch_appliance()
-    hass.data[DOMAIN][entry.entry_id]["appliances"] = []
+    hass.data[DOMAIN][entry.entry_id]["appliances"] = appliances
+    hass.data[DOMAIN][entry.entry_id]["gerenal_appliances"] = []
     hass.data[DOMAIN][entry.entry_id]["signal_entities"] = []
-    for properties in appliances.ac:
-        ...
-    for properties in appliances.light:
-        ...
     for properties in appliances.others:
         try:
             appliance: GeneralAppliance = extract_general_appliances(properties)
@@ -63,10 +60,9 @@ async def async_setup_entry(
         else:
             signal_entity = SignalEntity(appliance)
             hass.data[DOMAIN][entry.entry_id]["signal_entities"].append(signal_entity)
-            hass.data[DOMAIN][entry.entry_id]["appliances"].append(appliance)
+            hass.data[DOMAIN][entry.entry_id]["gerenal_appliances"].append(appliance)
             entities.append(signal_entity)
     async_add_entities(entities)
-
 
 
 class SignalEntity(SelectEntity):
