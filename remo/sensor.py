@@ -177,7 +177,7 @@ class ApplianceCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name="Remo API Coordinator for appliances",
-            update_interval=timedelta(seconds=30),
+            update_interval=timedelta(seconds=60),
             update_method=self.api.fetch_appliance,
         )
 
