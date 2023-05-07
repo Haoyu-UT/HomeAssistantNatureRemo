@@ -54,12 +54,12 @@ class RemoLight(LightEntity):
         self._attr_unique_id = f"{name} @ {light_id}"
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        self._attr_is_on = True
-        await self.async_toggle(**kwargs)
+        if not self.is_on:
+            await self.async_toggle(**kwargs)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        self._attr_is_on = False
-        await self.async_toggle(**kwargs)
+        if self.is_on:
+            await self.async_toggle(**kwargs)
 
     async def async_toggle(self, **kwargs: Any) -> None:
         self._attr_is_on = not self._attr_is_on
