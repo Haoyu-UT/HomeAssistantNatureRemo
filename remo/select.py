@@ -71,8 +71,8 @@ class SignalEntity(SelectEntity):
     _attr_has_entity_name = True
 
     def __init__(self, appliance: GeneralAppliance) -> None:
-        self._attr_name = f"Singals @ {appliance.name}"
-        self._attr_unique_id = f"Singals @ {appliance.id}"
+        self._attr_name = f"Signals @ {appliance.name}"
+        self._attr_unique_id = f"Signals @ {appliance.id}"
         self.signals: list[Signal] = appliance.signals
         self._attr_options = [
             f"{i+1}. {signal.name}" for i, signal in enumerate(self.signals)
