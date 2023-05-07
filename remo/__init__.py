@@ -10,16 +10,21 @@ from .const import DOMAIN
 
 # List the platforms that you want to support.
 # For your initial PR, limit it to 1 platform.
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SELECT, Platform.LIGHT]
+SUBPLATFORMS: list[Platform] = [Platform.BUTTON, Platform.CLIMATE]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up nature_remo from a config entry."""
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {"api": RemoAPI(entry.data["token"])}
+    api = RemoAPI(entry.data["token"])
+    hass.data[DOMAIN][entry.entry_id] = {
+        "api": api,
+        "appliances": await api.fetch_appliance(),
+    }
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    await hass.config_entries.async_forward_entry_setups(entry, [Platform.BUTTON, Platform.CLIMATE])
+    await hass.config_entries.async_forward_entry_setups(entry, SUBPLATFORMS)
     return True
 
 

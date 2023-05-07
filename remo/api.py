@@ -32,6 +32,7 @@ class RemoAPI:
             "appliances": Api("1/appliances", "get"),
             "sendir": Api("1/signals/{}/send", "post"),
             "setac": Api("1/appliances/{}/aircon_settings", "post"),
+            "setlight": Api("1/appliances/{}/light", "post"),
         }
         self.header = {"Authorization": f"Bearer {self.token}"}
 
@@ -126,6 +127,10 @@ class RemoAPI:
         }
         _LOGGER.debug(data)
         return await self.post(self.apis["setac"], [ac.data.id], data)
+
+    async def send_light_signal(self, app_id: str, button: str):
+        """Press button on given light"""
+        return await self.post(self.apis["setlight"], [app_id], {"button": button})
 
     async def authenticate(self) -> bool:
         """Test if we can authenticate with the host"""

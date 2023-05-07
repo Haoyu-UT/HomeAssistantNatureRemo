@@ -23,8 +23,12 @@ class UnexpectedAC(HomeAssistantError):
     """Error to indicate the AC has an expected configuration."""
 
 
+class UnexpectedLight(HomeAssistantError):
+    """Error to indicate the light has an expected configuration."""
+
+
 Api = collections.namedtuple("Api", ("url", "method"))
-GeneralAppliance = collections.namedtuple("GeneralAppliance", ("id", "name", "signals"))
+Appliance = collections.namedtuple("GeneralAppliance", ("id", "name", "signals"))
 Signal = collections.namedtuple("Signal", ("id", "name"))
 SensorData = collections.namedtuple(
     "SensorData", ("temperature", "humidity", "illuminance", "movement")

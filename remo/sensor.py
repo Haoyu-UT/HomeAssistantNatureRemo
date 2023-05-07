@@ -42,9 +42,9 @@ async def async_setup_entry(
             sensors.append(IlluminanceSensor(coordinator, mac, device_name, val))
         if (val := sensor_data.movement) is not None:
             sensors.append(MovementSensor(coordinator, mac, device_name, val))
+    appliances: Appliances = hass.data[DOMAIN][entry.entry_id]["appliances"]
     coordinator = ApplianceCoordinator(hass, api)
     hass.data[DOMAIN][entry.entry_id]["appliance_coordinator"] = coordinator
-    appliances: Appliances = await api.fetch_appliance()
     if appliances.electricitymeter:
         for properties in appliances.electricitymeter:
             unique_id, name = properties["id"], properties["nickname"]

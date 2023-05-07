@@ -128,16 +128,30 @@ set_swing_mode:
 
 turn_on:
   name: Turn on
-  description: Turn climate device on.
+  description: Turn climate/light device on.
   target:
     entity:
       integration: remo
-      domain: climate
+      domain:
+        - climate
+        - light
 
 turn_off:
   name: Turn off
-  description: Turn climate device off.
+  description: Turn climate/light device off.
   target:
     entity:
       integration: remo
-      domain: climate
+      domain:
+        - climate
+        - light
+
+toggle:
+  name: Toggle
+  description: >
+    Toggles one or more lights, from on to off, or, off to on, based on their
+    current state.
+  target:
+    entity:
+      integration: remo
+      domain: light
