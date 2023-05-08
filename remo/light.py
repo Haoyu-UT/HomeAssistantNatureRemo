@@ -20,12 +20,12 @@ async def async_setup_entry(
     platform.async_register_entity_service(
         SERVICE_TURN_ON,
         {},
-        RemoLight.async_toggle.__name__,
+        RemoLight.async_turn_on.__name__,
     )
     platform.async_register_entity_service(
         SERVICE_TURN_OFF,
         {},
-        RemoLight.async_toggle.__name__,
+        RemoLight.async_turn_off.__name__,
     )
     platform.async_register_entity_service(
         SERVICE_TOGGLE,
