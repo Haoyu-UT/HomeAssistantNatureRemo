@@ -3,7 +3,7 @@ select_option:
   description: Select an option of an select entity.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: select
   fields:
     option:
@@ -19,7 +19,7 @@ press:
   description: Press the input button entity.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: button
 
 set_temperature:
@@ -27,7 +27,7 @@ set_temperature:
   description: Set target temperature of climate device.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: climate
       supported_features:
         - climate.ClimateEntityFeature.TARGET_TEMPERATURE
@@ -68,7 +68,7 @@ set_fan_mode:
   description: Set fan operation for climate device.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: climate
       supported_features:
         - climate.ClimateEntityFeature.FAN_MODE
@@ -86,7 +86,7 @@ set_hvac_mode:
   description: Set HVAC operation mode for climate device.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: climate
   fields:
     hvac_mode:
@@ -113,7 +113,7 @@ set_swing_mode:
   description: Set swing operation for climate device.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: climate
       supported_features:
         - climate.ClimateEntityFeature.SWING_MODE
@@ -131,7 +131,7 @@ turn_on:
   description: Turn light device on.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: light
 
 turn_off:
@@ -139,7 +139,7 @@ turn_off:
   description: Turn light device off.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: light
 
 toggle:
@@ -149,5 +149,5 @@ toggle:
     current state.
   target:
     entity:
-      integration: remo
+      integration: nature_remo
       domain: light

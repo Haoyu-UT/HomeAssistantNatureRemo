@@ -4,7 +4,7 @@ import collections
 import homeassistant.components.climate as Climate
 from homeassistant.exceptions import HomeAssistantError
 
-DOMAIN = "remo"
+DOMAIN = "nature_remo"
 
 
 class NetworkError(HomeAssistantError):
