@@ -1,3 +1,5 @@
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+
 # HomeAssistantNatureRemo
 An integration for accessing Nature Remo sensors and appliances from [Home Assistant](https://www.home-assistant.io/).
 
