@@ -1,17 +1,18 @@
 {
-    "domain": "nature_remo",
-    "name": "Nature Remo",
-    "codeowners": [
-      "@Haoyu-UT"
-    ],
-    "version": "1.0.1",
-    "config_flow": true,
-    "dependencies": [],
-    "documentation": "https://www.home-assistant.io/integrations/remo",
-    "homekit": {},
-    "integration_type": "hub",
-    "iot_class": "cloud_polling",
-    "requirements": [],
-    "ssdp": [],
-    "zeroconf": []
-  }
+  "domain": "nature_remo",
+  "name": "Nature Remo",
+  "codeowners": [
+    "@Haoyu-UT"
+  ],
+  "version": "1.0.1",
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Haoyu-UT/HomeAssistantNatureRemo/blob/main/README.md",
+  "homekit": {},
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "issue_tracker": "https://github.com/Haoyu-UT/HomeAssistantNatureRemo/issues"
+}
