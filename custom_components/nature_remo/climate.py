@@ -40,7 +40,7 @@ def extract_last_settings(settings: dict) -> ACStatus:
         float(settings["temp"]),
         UnitOfTemperature.CELSIUS,
         settings["vol"],
-        datetime.datetime.strptime(settings["updated_at"], "%Y-%m-%dT%H:%M:%SZ"),
+        datetime.datetime.fromisoformat(settings["updated_at"][:-1] + "+00:00"),
     )
 
 
@@ -252,13 +252,13 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
         self._attr_swing_mode = self.mode_target_swing_mode[self.hvac_mode]
         self._attr_hvac_action = MODE_ACTION_MAP[self.hvac_mode]
         await self.api.send_ac_signal(self)
-        self.last_update_timestamp = datetime.datetime.utcnow()
+        self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
 
     async def async_turn_off(self) -> None:
         self._attr_hvac_mode = Climate.const.HVACMode.OFF
         self._attr_hvac_action = MODE_ACTION_MAP[self.hvac_mode]
         await self.api.send_ac_signal(self)
-        self.last_update_timestamp = datetime.datetime.utcnow()
+        self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
 
     async def async_set_hvac_mode(self, hvac_mode: Climate.const.HVACMode) -> None:
         if hvac_mode == Climate.const.HVACMode.OFF:
@@ -275,7 +275,7 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
             self._attr_swing_mode = self.mode_target_swing_mode[hvac_mode]
             self._attr_swing_modes = self.data.modes[hvac_mode].swing_modes
             await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.utcnow()
+            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         temperature = kwargs["temperature"]
@@ -284,18 +284,18 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
             self._attr_target_temperature = new_temp
             self.mode_target_temp[self.hvac_mode] = new_temp
             await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.utcnow()
+            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         if fan_mode != self.fan_mode and fan_mode in self.fan_modes:
             self._attr_fan_mode = fan_mode
             self.mode_target_fan_mode[self.hvac_mode] = fan_mode
             await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.utcnow()
+            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
         if swing_mode != self.swing_mode and swing_mode in self.swing_modes:
             self._attr_swing_mode = swing_mode
             self.mode_target_swing_mode[self.hvac_mode] = swing_mode
             await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.utcnow()
+            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)

@@ -1,5 +1,5 @@
 """File defining temperature sensor"""
-from datetime import timedelta
+import datetime
 import logging
 
 from homeassistant.components.sensor import (
@@ -62,7 +62,7 @@ class SensorCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name="Remo API Coordinator for sensors",
-            update_interval=timedelta(seconds=60),
+            update_interval=datetime.timedelta(seconds=60),
             update_method=self.api.fecth_sensor_data,
         )
 
@@ -164,7 +164,10 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.coordinator.data[self.mac].movement
+        time_str = self.coordinator.data[self.mac].movement
+        self._attr_native_value = datetime.datetime.fromisoformat(
+            time_str[:-1] + "+00:00"
+        )
         self.async_write_ha_state()
 
 
@@ -177,7 +180,7 @@ class ApplianceCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name="Remo API Coordinator for appliances",
-            update_interval=timedelta(seconds=60),
+            update_interval=datetime.timedelta(seconds=60),
             update_method=self.api.fetch_appliance,
         )
 
