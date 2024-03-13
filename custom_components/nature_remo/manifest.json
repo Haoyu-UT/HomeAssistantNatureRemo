@@ -14,5 +14,6 @@
   "requirements": [],
   "ssdp": [],
   "zeroconf": [],
-  "issue_tracker": "https://github.com/Haoyu-UT/HomeAssistantNatureRemo/issues"
+  "issue_tracker": "https://github.com/Haoyu-UT/HomeAssistantNatureRemo/issues",
+  "loggers": ["custom_components.nature_remo"]
 }
