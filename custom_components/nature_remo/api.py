@@ -85,6 +85,7 @@ class RemoAPI:
         """Fetch device name for all remo devices"""
         data = {}
         response = await self.get(self.apis["devices"])
+        _LOGGER.debug(f"{self.base_url}{self.apis["devices"]} gives the following response: %s", str(response))
         for device_response in response:
             mac = device_response["mac_address"]
             name = device_response["name"]
@@ -95,6 +96,7 @@ class RemoAPI:
         """Fetch all registered appliances"""
         ac_list, light_list, electricity_meter_list, others_list = [], [], [], []
         response = await self.get(self.apis["appliances"])
+        _LOGGER.debug(f"{self.base_url}{self.apis["appliances"]} gives the following response: %s", str(response))
 
         for appliance_response in response:
             properties = {k: v for k, v in appliance_response.items() if v}
@@ -135,4 +137,5 @@ class RemoAPI:
     async def authenticate(self) -> bool:
         """Test if we can authenticate with the host"""
         response = await self.get(self.apis["user"])
+        _LOGGER.debug(f"{self.base_url}{self.apis["user"]} gives the following response: %s", str(response))
         return response is not None

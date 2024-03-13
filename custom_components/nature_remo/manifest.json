@@ -4,7 +4,7 @@
   "codeowners": [
     "@Haoyu-UT"
   ],
-  "version": "1.0.2",
+  "version": "1.0.3",
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/Haoyu-UT/HomeAssistantNatureRemo/blob/main/README.md",

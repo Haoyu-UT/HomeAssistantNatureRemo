@@ -159,15 +159,17 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
         self.mac = mac
         self._attr_unique_id = f"Movement Sensor @ {mac}"
         self._attr_name = f"Movement Sensor @ {name}"
-        self._attr_native_value = init_val
+        self._attr_native_value = self.timestamp_to_datetime(init_val)
+
+    def timestamp_to_datetime(self, timestamp: str):
+        return datetime.datetime.fromisoformat(timestamp[:-1] + "+00:00")
+
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         time_str = self.coordinator.data[self.mac].movement
-        self._attr_native_value = datetime.datetime.fromisoformat(
-            time_str[:-1] + "+00:00"
-        )
+        self._attr_native_value = self.timestamp_to_datetime(time_str)
         self.async_write_ha_state()
 
 
@@ -193,7 +195,7 @@ class ElectricityMeter(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = True
     _attr_device_info = {}
-    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, unique_id, name) -> None:
