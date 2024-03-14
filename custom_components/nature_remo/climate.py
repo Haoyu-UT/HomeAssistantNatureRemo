@@ -1,5 +1,6 @@
 """File for controling air conditioners"""
 import datetime
+import itertools
 import logging
 from typing import Any, Optional
 
@@ -18,11 +19,12 @@ from .api import RemoAPI
 from .const import (
     AC,
     DOMAIN,
-    MODE_ACTION_MAP,
-    MODE_MAP,
+    HVAC_MODE_ACTION_MAP,
+    HVAC_MODE_MAP,
     ACStatus,
     Appliances,
     ModeSpec,
+    SwingModePair,
     UnexpectedAC,
 )
 from .sensor import ApplianceCoordinator, HumiditySensor, TemperatureSensor
@@ -32,12 +34,15 @@ _LOGGER = logging.getLogger(__name__)
 
 def extract_last_settings(settings: dict) -> ACStatus:
     """Extract last ACStatus from json"""
+    try:
+        temp = float(settings["temp"])
+    except ValueError:
+        temp = 0.0
     return ACStatus(
         "off" if settings["button"] == "power-off" else "on",
-        settings["dir"],
-        settings["dirh"],
-        MODE_MAP[settings["mode"]],
-        float(settings["temp"]),
+        SwingModePair(v=settings["dir"], h=settings["dirh"]),
+        HVAC_MODE_MAP[settings["mode"]],
+        temp,
         UnitOfTemperature.CELSIUS,
         settings["vol"],
         datetime.datetime.fromisoformat(settings["updated_at"][:-1] + "+00:00"),
@@ -73,26 +78,85 @@ def extract_ac_properties(properties: dict, sensors: list) -> AC:
     feature_flag = (
         Climate.const.ClimateEntityFeature.TARGET_TEMPERATURE
         | Climate.const.ClimateEntityFeature.FAN_MODE
+        | Climate.const.ClimateEntityFeature.SWING_MODE
+        | Climate.const.ClimateEntityFeature.TURN_OFF
+        | Climate.const.ClimateEntityFeature.TURN_ON
     )
-    modes = {Climate.const.HVACMode.OFF: ModeSpec(None, None, None, None, [], [])}
+    modes = {
+        Climate.const.HVACMode.OFF: ModeSpec(
+            None, None, None, None, None, None, None, None, None
+        )
+    }
     for mode, mode_properties in ac_properties.items():
-        if mode in MODE_MAP:
-            swing = list(filter(bool, mode_properties["dir"]))
-            swing_h = list(filter(bool, mode_properties["dirh"]))
-            fan_modes = list(filter(bool, mode_properties["vol"]))
-            if swing or swing_h:
-                feature_flag |= Climate.const.ClimateEntityFeature.SWING_MODE
-            temps = sorted(map(int, mode_properties["temp"]))
-            # assert temps is continuous and the step is 1
-            assert all(temps[i + 1] - 1 == temps[i] for i in range(len(temps) - 1))
-            modes[MODE_MAP[mode]] = ModeSpec(
-                float(min(temps)), float(max(temps)), 1.0, fan_modes, swing, swing_h
-            )
+        if mode in HVAC_MODE_MAP:
+            swings = mode_properties["dir"]
+            swings_h = mode_properties["dirh"]
+            swingmodepairs = [
+                SwingModePair(*p) for p in itertools.product(swings, swings_h)
+            ]
+            fan_modes = mode_properties["vol"]
+            assert len(mode_properties["temp"]) >= 1
+            if len(mode_properties["temp"]) == 1:
+                # the case where no adjustable temps are provided
+                try:
+                    temps_str = mode_properties["temp"]
+                    temps_float = [float(temps_str[0])]
+                    modes[HVAC_MODE_MAP[mode]] = ModeSpec(
+                        temps_str,
+                        temps_float,
+                        temps_float[0],
+                        temps_float[0],
+                        None,
+                        fan_modes,
+                        swings,
+                        swings_h,
+                        swingmodepairs,
+                    )
+                except ValueError:
+                    assert temps_str[0] == ""
+                    modes[HVAC_MODE_MAP[mode]] = ModeSpec(
+                        [""],
+                        [0.0],
+                        0.0,
+                        0.0,
+                        1.0,
+                        fan_modes,
+                        swings,
+                        swings_h,
+                        swingmodepairs,
+                    )
+            else:
+                # the normal case where temps are provided and >= 2
+                temps_sorted = sorted((float(t), t) for t in mode_properties["temp"])
+                temps_float = [temp_float for temp_float, temp_str in temps_sorted]
+                temps_str = [temp_str for temp_float, temp_str in temps_sorted]
+                # assert temps are equally stepped, and the step is larger than 0.01
+                step_str = f"{temps_float[1]-temps_float[0]:.2f}"
+                step_float = float(step_str)
+                assert abs(step_float - (temps_float[1] - temps_float[0])) <= 1e-3
+                assert all(
+                    f"{b-a:.2f}" == step_str
+                    for a, b in zip(temps_float[:-1], temps_float[1:])
+                )
+                modes[HVAC_MODE_MAP[mode]] = ModeSpec(
+                    temps_str,
+                    temps_float,
+                    min(temps_float),
+                    max(temps_float),
+                    step_float,
+                    fan_modes,
+                    swings,
+                    swings_h,
+                    swingmodepairs,
+                )
         else:
             _LOGGER.warning(
                 "Unknown AC mode %s; please contact the project maintainer", mode
             )
-    last_status = extract_last_settings(properties["settings"])
+    try:
+        last_status = extract_last_settings(properties["settings"])
+    except:
+        last_status = None
     return AC(
         ac_id,
         name,
@@ -166,39 +230,55 @@ async def async_setup_entry(
 class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
     """Class providing air conditioner control"""
 
+    _enable_turn_on_off_backwards_compatibility = False
     _attr_has_entity_name = True
     last_update_timestamp: datetime.datetime
     last_hvac_mode: Climate.const.HVACMode
-    mode_min_temp: float
-    mode_max_temp: float
-    mode_target_temp: dict[str, float]
+    mode_target_temp_idx: dict[str, int]
     mode_target_fan_mode: dict[str, str]
-    mode_target_swing_mode: dict[str, str]
+    mode_target_swingmodepair: dict[str, SwingModePair]
 
     def recover_status_from_ac_status(self, status: ACStatus):
         """Recover status from ACStatus"""
+        self.last_update_timestamp = status.timestamp
         self.last_hvac_mode = status.mode
         self._attr_hvac_mode = (
             Climate.const.HVACMode.OFF if status.power == "off" else status.mode
         )
-        self._attr_hvac_action = MODE_ACTION_MAP[self.hvac_mode]
-        self._attr_fan_mode = status.fan_mode
+        # set attributes of last hvac mode
+        modespec: ModeSpec = self.data.modes[status.mode]
         self.mode_target_fan_mode[status.mode] = status.fan_mode
-        self._attr_swing_mode = status.swing
-        self.mode_target_swing_mode[status.mode] = status.swing
-        self.last_update_timestamp = status.timestamp
-        self._attr_fan_modes = self.data.modes[status.mode].fan_modes
-        self.mode_min_temp = self.data.modes[status.mode].low_temp
-        self.mode_max_temp = self.data.modes[status.mode].high_temp
-        self.mode_target_temp[status.mode] = status.target_temperature
-        self._attr_target_temperature = status.target_temperature
-        self._attr_target_temperature_step = self.data.modes[status.mode].step
-        self._attr_swing_modes = self.data.modes[status.mode].swing_modes
+        self.mode_target_swingmodepair[status.mode] = status.swingmodepair
+        self.mode_target_temp_idx[status.mode] = modespec.temps_float.index(
+            status.target_temperature
+        )
+        # set attributes of current hvac mode
+        modespec: ModeSpec = self.data.modes[self.hvac_mode]
+        self._attr_hvac_action = HVAC_MODE_ACTION_MAP[self.hvac_mode]
+        self._attr_fan_modes = modespec.fan_modes
+        self._attr_target_temperature_low = modespec.low_temp
+        self._attr_target_temperature_high = modespec.high_temp
+        self._attr_target_temperature_step = modespec.step
+        if status.power == "on":
+            self._attr_fan_mode = status.fan_mode
+            self._attr_swing_mode = str(status.swingmodepair)
+            self._attr_target_temperature = status.target_temperature
+            self._attr_swing_modes = list(map(str, modespec.swingmodespairs))
+            self._attr_min_temp = min(modespec.temps_float)
+            self._attr_max_temp = max(modespec.temps_float)
+        elif status.power == "off":
+            self._attr_fan_mode = None
+            self._attr_swing_mode = None
+            self._attr_swing_modes = None
+            self._attr_target_temperature = 0.0
+            self._attr_min_temp = 0.0
+            self._attr_max_temp = 0.0
 
     def __init__(
         self, data: AC, api: RemoAPI, coordinator: ApplianceCoordinator
     ) -> None:
         # this step sets self.coordinator
+        _LOGGER.debug("parsed AC modes: %s", str(data.modes))
         super().__init__(coordinator)
         self.data = data
         self.api = api
@@ -207,10 +287,8 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
         self._attr_temperature_unit = data.temperature_unit
         self._attr_supported_features = data.feature_flag
         self._attr_hvac_modes = sorted(data.modes.keys())
-        self.mode_target_temp = {
-            mode: float(
-                round((data.modes[mode].low_temp + data.modes[mode].high_temp) / 2)
-            )
+        self.mode_target_temp_idx = {
+            mode: len(data.modes[mode].temps_float) // 2
             for mode in self.hvac_modes
             if mode != Climate.const.HVACMode.OFF
         }
@@ -219,8 +297,8 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
             for mode in self.hvac_modes
             if mode != Climate.const.HVACMode.OFF
         }
-        self.mode_target_swing_mode = {
-            mode: data.modes[mode].swing_modes[0]
+        self.mode_target_swingmodepair = {
+            mode: data.modes[mode].swingmodespairs[0]
             for mode in self.hvac_modes
             if mode != Climate.const.HVACMode.OFF
         }
@@ -228,7 +306,19 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
             self._attr_current_temperature = data.temperature_sensor.native_value
         if data.humidity_sensor is not None:
             self._attr_current_humidity = data.humidity_sensor.native_value
-        self.recover_status_from_ac_status(data.last_status)
+        # recover from last settings if possible
+        if data.last_status is not None:
+            self.recover_status_from_ac_status(data.last_status)
+        else:
+            self._attr_hvac_mode = Climate.const.HVACMode.OFF
+            self._attr_hvac_action = HVAC_MODE_ACTION_MAP[self.hvac_mode]
+            self.last_hvac_mode = next(
+                mode for mode in self.hvac_modes if mode != Climate.const.HVACMode.OFF
+            )
+            self._attr_target_temperature = 0.0
+            self._attr_min_temp = 0.0
+            self._attr_max_temp = 0.0
+            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -246,18 +336,14 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
         self.async_write_ha_state()
 
     async def async_turn_on(self) -> None:
-        self._attr_hvac_mode = self.last_hvac_mode
-        self._attr_target_temperature = self.mode_target_temp[self.hvac_mode]
-        self._attr_fan_mode = self.mode_target_fan_mode[self.hvac_mode]
-        self._attr_swing_mode = self.mode_target_swing_mode[self.hvac_mode]
-        self._attr_hvac_action = MODE_ACTION_MAP[self.hvac_mode]
-        await self.api.send_ac_signal(self)
-        self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
-        self.async_write_ha_state()
+        await self.async_set_hvac_mode(self.last_hvac_mode)
 
     async def async_turn_off(self) -> None:
         self._attr_hvac_mode = Climate.const.HVACMode.OFF
-        self._attr_hvac_action = MODE_ACTION_MAP[self.hvac_mode]
+        self._attr_hvac_action = HVAC_MODE_ACTION_MAP[self.hvac_mode]
+        self._attr_target_temperature = 0.0
+        self._attr_min_temp = 0.0
+        self._attr_max_temp = 0.0
         await self.api.send_ac_signal(self)
         self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
         self.async_write_ha_state()
@@ -266,31 +352,51 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
         if hvac_mode == Climate.const.HVACMode.OFF:
             await self.async_turn_off()
         elif hvac_mode != self.hvac_mode and hvac_mode in self.hvac_modes:
+            modespec: ModeSpec = self.data.modes[hvac_mode]
             self.last_hvac_mode = self._attr_hvac_mode = hvac_mode
-            self._attr_hvac_action = MODE_ACTION_MAP[hvac_mode]
+            self._attr_hvac_action = HVAC_MODE_ACTION_MAP[hvac_mode]
+            self._attr_fan_modes = modespec.fan_modes
+            self._attr_target_temperature_low = modespec.low_temp
+            self._attr_target_temperature_high = modespec.high_temp
+            self._attr_target_temperature_step = modespec.step
+            self._attr_min_temp = min(modespec.temps_float)
+            self._attr_max_temp = max(modespec.temps_float)
+            self._attr_swing_modes = list(map(str, modespec.swingmodespairs))
             self._attr_fan_mode = self.mode_target_fan_mode[hvac_mode]
-            self._attr_fan_modes = self.data.modes[hvac_mode].fan_modes
-            self.mode_min_temp = self.data.modes[hvac_mode].low_temp
-            self.mode_max_temp = self.data.modes[hvac_mode].high_temp
-            self._attr_target_temperature = self.mode_target_temp[hvac_mode]
-            self._attr_target_temperature_step = self.data.modes[hvac_mode].step
-            self._attr_swing_mode = self.mode_target_swing_mode[hvac_mode]
-            self._attr_swing_modes = self.data.modes[hvac_mode].swing_modes
+            self._attr_target_temperature = modespec.temps_float[
+                self.mode_target_temp_idx[hvac_mode]
+            ]
+            self._attr_swing_mode = str(self.mode_target_swingmodepair[hvac_mode])
             await self.api.send_ac_signal(self)
             self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
             self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
+        if self.hvac_mode == Climate.const.HVACMode.OFF:
+            return
         temperature = kwargs["temperature"]
-        new_temp = min(self.mode_max_temp, max(self.mode_min_temp, temperature))
-        if round(new_temp) != round(self.target_temperature):
+        cur_modespec: ModeSpec = self.data.modes[self.hvac_mode]
+        mode_min_temp, mode_max_temp = cur_modespec.low_temp, cur_modespec.high_temp
+        mode_temps_float = cur_modespec.temps_float
+        new_temp = min(mode_max_temp, max(mode_min_temp, temperature))
+        # mode_temps_str = cur_modespec.temps_str
+        new_temp_idx = min(
+            range(len(mode_temps_float)),
+            key=lambda i: abs(mode_temps_float[i] - new_temp),
+        )
+        new_temp = mode_temps_float[new_temp_idx]
+        if new_temp != self.target_temperature:
             self._attr_target_temperature = new_temp
-            self.mode_target_temp[self.hvac_mode] = new_temp
+            self.mode_target_temp_idx[self.hvac_mode] = new_temp_idx
             await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
+            self.last_update_timestamp = datetime.datetime.now(
+                datetime.timezone.utc
+            )
             self.async_write_ha_state()
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
+        if self.hvac_mode == Climate.const.HVACMode.OFF:
+            return
         if fan_mode != self.fan_mode and fan_mode in self.fan_modes:
             self._attr_fan_mode = fan_mode
             self.mode_target_fan_mode[self.hvac_mode] = fan_mode
@@ -299,9 +405,14 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
             self.async_write_ha_state()
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
+        if self.hvac_mode == Climate.const.HVACMode.OFF:
+            return
         if swing_mode != self.swing_mode and swing_mode in self.swing_modes:
+            modespec: ModeSpec = self.data.modes[self.hvac_mode]
             self._attr_swing_mode = swing_mode
-            self.mode_target_swing_mode[self.hvac_mode] = swing_mode
+            self.mode_target_swingmodepair[self.hvac_mode] = next(
+                p for p in modespec.swingmodespairs if str(p) == swing_mode
+            )
             await self.api.send_ac_signal(self)
             self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
             self.async_write_ha_state()

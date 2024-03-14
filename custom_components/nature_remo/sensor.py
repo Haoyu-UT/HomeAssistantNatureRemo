@@ -1,6 +1,7 @@
 """File defining temperature sensor"""
 import datetime
 import logging
+import time
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -8,7 +9,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import LIGHT_LUX, PERCENTAGE, UnitOfPower, UnitOfTemperature
+from homeassistant.const import (
+    LIGHT_LUX,
+    PERCENTAGE,
+    UnitOfEnergy,
+    UnitOfPower,
+    UnitOfTemperature,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
@@ -17,7 +24,16 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .api import RemoAPI
-from .const import DOMAIN, Appliances, SensorData
+from .const import (
+    DOMAIN,
+    ENERGY_UNIT_COEFFICIENT_MAP,
+    EPC_ITEM_NAME_MAP,
+    EPC_ITEM_VALUE_MAP,
+    EPC_ITEMS,
+    EPC_VALUE_ITEM_MAP,
+    Appliances,
+    SensorData,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,17 +54,29 @@ async def async_setup_entry(
             sensors.append(TemperatureSensor(coordinator, mac, device_name, val))
         if (val := sensor_data.humidity) is not None:
             sensors.append(HumiditySensor(coordinator, mac, device_name, val))
-        if val := sensor_data.illuminance is not None:
+        if (val := sensor_data.illuminance) is not None:
             sensors.append(IlluminanceSensor(coordinator, mac, device_name, val))
         if (val := sensor_data.movement) is not None:
             sensors.append(MovementSensor(coordinator, mac, device_name, val))
     appliances: Appliances = hass.data[DOMAIN][entry.entry_id]["appliances"]
     coordinator = ApplianceCoordinator(hass, api)
     hass.data[DOMAIN][entry.entry_id]["appliance_coordinator"] = coordinator
-    if appliances.electricitymeter:
-        for properties in appliances.electricitymeter:
-            unique_id, name = properties["id"], properties["nickname"]
-            sensors.append(ElectricityMeter(coordinator, unique_id, name))
+    for properties in appliances.power_energy_meter:
+        mac = properties["device"]["mac_address"]
+        device_name = device_name_dic[mac]
+        epc_items = {
+            EPC_VALUE_ITEM_MAP[p["epc"]]
+            for p in properties["smart_meter"]["echonetlite_properties"]
+        }
+        target_epc_items = {
+            EPC_ITEMS.power,
+            EPC_ITEMS.comsumed_energy,
+            EPC_ITEMS.generated_energy,
+        }
+        for epc_item in target_epc_items & epc_items:
+            sensors.append(
+                PowerEnergyMeter(epc_item, coordinator, mac, device_name, properties)
+            )
     hass.data[DOMAIN][entry.entry_id]["sensors"] = sensors
     async_add_entities(sensors)
 
@@ -153,6 +181,10 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
+    @staticmethod
+    def timestamp_to_datetime(timestamp: str):
+        return datetime.datetime.fromisoformat(timestamp[:-1] + "+00:00")
+
     def __init__(self, coordinator, mac, name, init_val) -> None:
         # this step sets self.coordinator
         super().__init__(coordinator)
@@ -160,10 +192,6 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"Movement Sensor @ {mac}"
         self._attr_name = f"Movement Sensor @ {name}"
         self._attr_native_value = self.timestamp_to_datetime(init_val)
-
-    def timestamp_to_datetime(self, timestamp: str):
-        return datetime.datetime.fromisoformat(timestamp[:-1] + "+00:00")
-
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -187,35 +215,75 @@ class ApplianceCoordinator(DataUpdateCoordinator):
         )
 
 
-class ElectricityMeter(CoordinatorEntity, SensorEntity):
-    """Class providing electricity meter function"""
+class PowerEnergyMeter(CoordinatorEntity, SensorEntity):
+    """Class providing electricity or power meter function"""
 
-    _attr_unit_of_measurement = UnitOfPower.WATT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
     _attr_has_entity_name = True
     _attr_should_poll = True
     _attr_device_info = {}
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_value = 0.0
 
-    def __init__(self, coordinator, unique_id, name) -> None:
+    @staticmethod
+    def get_raw_value(properties: dict, epc_item: EPC_ITEMS):
+        return next(
+            int(p["val"])
+            for p in properties["smart_meter"]["echonetlite_properties"]
+            if p["epc"] == EPC_ITEM_VALUE_MAP[epc_item]
+        )
+
+    def __init__(self, epc_item, coordinator, mac, name, init_properties) -> None:
         # this step sets self.coordinator
         super().__init__(coordinator)
-        self._attr_unique_id = unique_id
-        self._attr_name = name
+        self.epc_item = epc_item
+        self.epc_value = EPC_ITEM_VALUE_MAP[epc_item]
+        self.epc_name = EPC_ITEM_NAME_MAP[epc_item]
+        self.mac = mac
+        self._attr_unique_id = f"{self.epc_name} @ {mac}"
+        self._attr_name = f"{self.epc_name} @ {name}"
+        if epc_item == EPC_ITEMS.power:
+            self._attr_unit_of_measurement = UnitOfPower.WATT
+            self._attr_native_unit_of_measurement = UnitOfPower.WATT
+            self._attr_device_class = SensorDeviceClass.POWER
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        else:
+            self._attr_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+            self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            energy_coefficient = self.get_raw_value(
+                init_properties, EPC_ITEMS.energy_coefficient
+            )
+            energy_unit_coefficient = ENERGY_UNIT_COEFFICIENT_MAP[
+                self.get_raw_value(init_properties, EPC_ITEMS.energy_unit)
+            ]
+            energy_max_digits = self.get_raw_value(
+                init_properties, EPC_ITEMS.energy_max_digits
+            )
+            self.coefficient = float(energy_coefficient * energy_unit_coefficient)
+            self.max_value = float(self.coefficient * int("9" * energy_max_digits))
+
+        self.update_state(init_properties)
+
+    def update_state(self, properties: dict):
+        raw_val = self.get_raw_value(properties, self.epc_item)
+        if self.epc_item == EPC_ITEMS.power:
+            self._attr_native_value = raw_val
+        else:
+            value = float(self.coefficient * raw_val)
+            if value < self._attr_native_value:
+                # reseted since last update
+                self._attr_native_value = self.max_value
+                self.async_write_ha_state()
+                time.sleep(1.0)
+            self._attr_native_value = value
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         properties = next(
             p
-            for p in self.coordinator.data.electricitymeter
-            if p["id"] == self._attr_unique_id
+            for p in self.coordinator.data.power_energy_meter
+            if p["device"]["mac_address"] == self.mac
         )
-        value = next(
-            int(p["val"])
-            for p in properties["smart_meter"]["echonetlite_properties"]
-            if p["epc"] == 231
-        )
-        self._attr_native_value = value
+        self.update_state(properties)
         self.async_write_ha_state()

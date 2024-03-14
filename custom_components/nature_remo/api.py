@@ -4,7 +4,8 @@ import logging
 
 import requests
 
-from .const import MODE_REVERSE_MAP, Api, Appliances, NetworkError, SensorData
+from .const import HVAC_MODE_REVERSE_MAP, Api, Appliances, NetworkError, SensorData
+from .util import debugger_is_active
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +41,13 @@ class RemoAPI:
         """An async vesion of requests.get()"""
         loop = asyncio.get_running_loop()
         url = self.base_url + api.url
+        if debugger_is_active():
+            try:
+                from .test import mock_responses
+
+                return mock_responses[api]
+            except ImportError:
+                pass
         try:
             response = await loop.run_in_executor(None, blocking_get, url, self.header)
         except Exception as err:
@@ -54,6 +62,14 @@ class RemoAPI:
         """An async vesion of requests.post()"""
         loop = asyncio.get_running_loop()
         url = self.base_url + api.url.format(*params)
+        if debugger_is_active():
+            try:
+                from .test import mock_responses
+
+                _LOGGER.debug("Posting to %s with data %s", url, str(data))
+                return None
+            except ImportError:
+                pass
         try:
             response = await loop.run_in_executor(
                 None, blocking_post, url, self.header, data
@@ -84,8 +100,12 @@ class RemoAPI:
     async def fetch_device_name(self) -> dict[str, str]:
         """Fetch device name for all remo devices"""
         data = {}
-        response = await self.get(self.apis["devices"])
-        _LOGGER.debug(f"{self.base_url}{self.apis["devices"]} gives the following response: %s", str(response))
+        remote_api = self.apis["devices"]
+        response = await self.get(remote_api)
+        _LOGGER.debug(
+            f"{self.base_url}{remote_api.url} gives the following response: %s",
+            str(response),
+        )
         for device_response in response:
             mac = device_response["mac_address"]
             name = device_response["name"]
@@ -95,9 +115,12 @@ class RemoAPI:
     async def fetch_appliance(self) -> Appliances:
         """Fetch all registered appliances"""
         ac_list, light_list, electricity_meter_list, others_list = [], [], [], []
-        response = await self.get(self.apis["appliances"])
-        _LOGGER.debug(f"{self.base_url}{self.apis["appliances"]} gives the following response: %s", str(response))
-
+        remote_api = self.apis["appliances"]
+        response = await self.get(remote_api)
+        _LOGGER.debug(
+            f"{self.base_url}{remote_api.url} gives the following response: %s",
+            str(response),
+        )
         for appliance_response in response:
             properties = {k: v for k, v in appliance_response.items() if v}
             if "aircon" in properties:
@@ -105,12 +128,8 @@ class RemoAPI:
             elif "light" in properties:
                 light_list.append(properties)
             elif "smart_meter" in properties:
-                if any(
-                    p["epc"] == 231
-                    for p in properties["smart_meter"]["echonetlite_properties"]
-                ):
-                    electricity_meter_list.append(properties)
-            else:
+                electricity_meter_list.append(properties)
+            elif "signals" in properties:
                 others_list.append(properties)
         return Appliances(ac_list, light_list, electricity_meter_list, others_list)
 
@@ -122,10 +141,14 @@ class RemoAPI:
         """Control AC using information from AirConditioner object"""
         data = {
             "button": "power-off" if ac.hvac_mode == "off" else "",
-            "air_direction": ac.swing_mode,
-            "operation_mode": MODE_REVERSE_MAP[ac.last_hvac_mode],
-            "temperature": str(round(ac.target_temperature)),
-            "air_volume": ac.fan_mode,
+            "air_direction": ac.mode_target_swingmodepair[ac.last_hvac_mode].v,
+            "air_direction_h": ac.mode_target_swingmodepair[ac.last_hvac_mode].h,
+            "operation_mode": HVAC_MODE_REVERSE_MAP[ac.last_hvac_mode],
+            "temperature": ac.data.modes[ac.last_hvac_mode].temps_str[
+                ac.mode_target_temp_idx[ac.last_hvac_mode]
+            ],
+            "air_volume": ac.mode_target_fan_mode[ac.last_hvac_mode],
+            "temperature_unit": "c",
         }
         _LOGGER.debug(data)
         return await self.post(self.apis["setac"], [ac.data.id], data)
@@ -136,6 +159,10 @@ class RemoAPI:
 
     async def authenticate(self) -> bool:
         """Test if we can authenticate with the host"""
-        response = await self.get(self.apis["user"])
-        _LOGGER.debug(f"{self.base_url}{self.apis["user"]} gives the following response: %s", str(response))
+        remote_api = self.apis["user"]
+        response = await self.get(remote_api)
+        _LOGGER.debug(
+            f"{self.base_url}{remote_api.url} gives the following response: %s",
+            str(response),
+        )
         return response is not None

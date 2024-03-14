@@ -23,7 +23,7 @@ def extract_general_appliance(properties: dict) -> Appliance:
     """Build general Appliance from given properties"""
     app_id, app_name = properties["id"], properties["nickname"]
     signals = []
-    for signal in properties["signals"]:
+    for signal in properties.get("signals", []):
         signal_id, signal_name = signal["id"], signal["name"]
         signals.append(Signal(signal_id, signal_name))
     if signals:
@@ -35,8 +35,12 @@ def extract_general_appliance(properties: dict) -> Appliance:
 def extract_light_appliance(properties: dict) -> Appliance:
     """Build light Appliance from given properties"""
     app_id, app_name = properties["id"], properties["nickname"]
-    signals = [button["name"] for button in properties["light"]["buttons"]]
-    return Appliance(app_id, app_name, signals)
+    light_signals = [button["name"] for button in properties["light"]["buttons"]]
+    ir_signals = []
+    for signal in properties.get("signals", []):
+        signal_id, signal_name = signal["id"], signal["name"]
+        ir_signals.append(Signal(signal_id, signal_name))
+    return Appliance(app_id, app_name, light_signals + ir_signals)
 
 
 async def async_setup_entry(
@@ -110,14 +114,19 @@ class LightSignalEntity(SelectEntity):
 
     _attr_has_entity_name = True
 
+    @staticmethod
+    def signal_to_str(button: str | Signal):
+        return button.name if isinstance(button, Signal) else button
+
     def __init__(self, appliance: Appliance, api: RemoAPI) -> None:
         self.api = api
         self.light_id = appliance.id
-        self.buttons: list[str] = appliance.signals
+        self.buttons: list[str | Signal] = appliance.signals
         self._attr_name = f"Signals @ {appliance.name}"
         self._attr_unique_id = f"Signals @ {appliance.id}"
         self._attr_options = [
-            f"{i+1}. {signal}" for i, signal in enumerate(self.buttons)
+            f"{i+1}. {self.signal_to_str(signal)}"
+            for i, signal in enumerate(self.buttons)
         ]
         self._attr_current_option = self._attr_options[0]
         self.current_button = self.buttons[0]
@@ -130,4 +139,7 @@ class LightSignalEntity(SelectEntity):
 
     async def send_signal(self):
         """Send signal of current selection"""
-        return await self.api.send_light_signal(self.light_id, self.current_button)
+        if isinstance(self.current_button, Signal):
+            return await self.api.send_ir_signal(self.current_button.id)
+        elif isinstance(self.current_button, str):
+            return await self.api.send_light_signal(self.light_id, self.current_button)
