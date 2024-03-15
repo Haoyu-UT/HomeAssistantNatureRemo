@@ -49,4 +49,4 @@ All devices and appliances are detected and configured only once when adding the
 ### Light
 Lights are registered twice: one light entity and one select & button entity. Light eitities make intuitive sense for controlling; however, it's impossible to cover all functionalities of your light, and the `is_on` state is unreliable due to the lack of feedback. Use the select & button entity to control your light without modifying the `is_on` state (thus fixing wrong states), and access extra abilities of your light.
 
-The control of the light entity is implemented as sending `onoff` button signal, or sending `on` and `off` separately if `onoff` is not presented. Please contact me if you find it's not working for your light.
+The control of the light entity is implemented as sending `onoff` button signal, or sending `on` and `off` separately if `onoff` is not present. Please contact me if you find it's not working for your light.
