@@ -35,16 +35,18 @@ Copy the folder `custom_components/nature_remo` into `<config directory>/custom_
 ### Configuration
 After installation, restart Home Assistant and add the integration `nature_remo` from settings. During the process you will be asked to enter your API access token; you can get one from [here](https://home.nature.global/).
 
+## Upgrade
+In addtion to upgrading the package itself, **it is required to delete the hub registered by the integration, restart HA, and add the integration again.**
+<img width="1278" alt="image" src="https://github.com/Haoyu-UT/HomeAssistantNatureRemo/assets/69963492/8d4b0166-f6f0-4105-a933-2f642492eb44">
+
+
 ## Note
 ### Configuration Changes from Smartphone App
 **It is recommended that you finish all configurations on your smartphone app before using this integration.**
 
-All devices and appliances are detected and configured only once when adding the integration to Home Assistant, so if you changed your configuration from you smartphone app it will not be synchronized. **Remove and add the integration again if you wish to reflect the changes.**
-
-### Air Conditoner
-Only swing modes on vertical direction is supported; horizontal ones are unsupported due to limitations of Home Assistant.
+All devices and appliances are detected and configured only once when adding the integration to Home Assistant, so if you changed your configuration from you smartphone app it will not be synchronized. **Remove the hub registered by this integration and add the integration again if you wish to reflect the changes.**
 
 ### Light
-Lights are registered twice: one light entity and one select & button entity. Light eitities make intuitive sense for controlling; however, it's impossible to cover all functionalities of your light, and the `is_on` state is also unreliable. Use the select & button entity to control your light without modifying the `is_on` state (thus fix wrong state), and gain access to more functionalities of your light.
+Lights are registered twice: one light entity and one select & button entity. Light eitities make intuitive sense for controlling; however, it's impossible to cover all functionalities of your light, and the `is_on` state is unreliable due to the lack of feedback. Use the select & button entity to control your light without modifying the `is_on` state (thus fixing wrong states), and access extra abilities of your light.
 
-The control of the light entity is implemented as sending `onoff` button signal. Please contact me if you find it's not working for your light.
+The control of the light entity is implemented as sending `onoff` button signal, or sending `on` and `off` separately if `onoff` is not present. Please contact me if you find it's not working for your light.
