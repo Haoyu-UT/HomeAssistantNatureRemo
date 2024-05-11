@@ -1,8 +1,10 @@
 """File for controling air conditioners"""
+import asyncio
+import copy
 import datetime
 import itertools
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, override
 
 import voluptuous as vol
 
@@ -10,7 +12,7 @@ import homeassistant.components.climate as Climate
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_platform
+from homeassistant.helpers import entity_platform, restore_state
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -227,7 +229,9 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
+class AirConditioner(
+    restore_state.RestoreEntity, CoordinatorEntity, Climate.ClimateEntity
+):
     """Class providing air conditioner control"""
 
     _enable_turn_on_off_backwards_compatibility = False
@@ -237,6 +241,18 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
     mode_target_temp_idx: dict[str, int]
     mode_target_fan_mode: dict[str, str]
     mode_target_swingmodepair: dict[str, SwingModePair]
+
+    @override
+    @property
+    def extra_restore_state_data(self) -> restore_state.ExtraStoredData:
+        data = {
+            "mode_target_fan_mode": self.mode_target_fan_mode,
+            "mode_target_temp_idx": self.mode_target_temp_idx,
+            "mode_target_swingmodepair": {
+                k: [v.v, v.h] for k, v in self.mode_target_swingmodepair.items()
+            },
+        }
+        return restore_state.RestoredExtraData(data)
 
     def recover_status_from_ac_status(self, status: ACStatus):
         """Recover status from ACStatus"""
@@ -308,6 +324,25 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
             self._attr_current_humidity = data.humidity_sensor.native_value
         # recover from last settings if possible
         if data.last_status is not None:
+
+            def f(task):
+                mode = data.last_status.mode
+                if (extra_data := task.result()) is not None:
+                    extra_data = copy.deepcopy(extra_data.as_dict())
+                    for dic in extra_data.values():
+                        dic.pop(mode, None)
+                    self.mode_target_fan_mode.update(extra_data["mode_target_fan_mode"])
+                    self.mode_target_temp_idx.update(extra_data["mode_target_temp_idx"])
+                    self.mode_target_swingmodepair.update(
+                        {
+                            k: SwingModePair(*v)
+                            for k, v in extra_data["mode_target_swingmodepair"].items()
+                        }
+                    )
+
+            loop = asyncio.get_running_loop()
+            task = loop.create_task(self.async_get_last_extra_data())
+            task.add_done_callback(f)
             self.recover_status_from_ac_status(data.last_status)
         else:
             self._attr_hvac_mode = Climate.const.HVACMode.OFF
@@ -389,9 +424,7 @@ class AirConditioner(CoordinatorEntity, Climate.ClimateEntity):
             self._attr_target_temperature = new_temp
             self.mode_target_temp_idx[self.hvac_mode] = new_temp_idx
             await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.now(
-                datetime.timezone.utc
-            )
+            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
             self.async_write_ha_state()
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
