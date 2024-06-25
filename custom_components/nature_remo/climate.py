@@ -4,7 +4,7 @@ import copy
 import datetime
 import itertools
 import logging
-from typing import Any, Optional, override
+from typing import Any, Optional
 
 import voluptuous as vol
 
@@ -242,7 +242,6 @@ class AirConditioner(
     mode_target_fan_mode: dict[str, str]
     mode_target_swingmodepair: dict[str, SwingModePair]
 
-    @override
     @property
     def extra_restore_state_data(self) -> restore_state.ExtraStoredData:
         data = {
