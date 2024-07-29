@@ -61,7 +61,7 @@ class RemoAPI:
             except ImportError:
                 pass
         try:
-            response = await loop.run_in_executor(None, blocking_get, url)
+            response = await loop.run_in_executor(None, blocking_get, self.session, url)
         except Exception as err:
             raise NetworkError from err
         else:
@@ -85,7 +85,7 @@ class RemoAPI:
             except ImportError:
                 pass
         try:
-            response = await loop.run_in_executor(None, blocking_post, url, data)
+            response = await loop.run_in_executor(None, blocking_post, self.session, url, data)
         except Exception as err:
             raise NetworkError from err
         else:
