@@ -352,7 +352,7 @@ class AirConditioner(
             self._attr_target_temperature = 0.0
             self._attr_min_temp = 0.0
             self._attr_max_temp = 0.0
-            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
+            self.last_update_timestamp = datetime.datetime.now(datetime.UTC)
 
     @callback
     def _handle_coordinator_update(self) -> None:

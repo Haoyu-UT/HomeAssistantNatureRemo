@@ -3,21 +3,29 @@ import asyncio
 import logging
 
 import requests
+from requests.adapters import HTTPAdapter, Retry
 
-from .const import HVAC_MODE_REVERSE_MAP, Api, Appliances, NetworkError, SensorData
+from .const import (
+    HVAC_MODE_REVERSE_MAP,
+    Api,
+    Appliances,
+    AuthError,
+    NetworkError,
+    SensorData,
+)
 from .util import debugger_is_active
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def blocking_get(url, header):
+def blocking_get(session: requests.Session, url: str):
     """A blocking vesion of requests.get()"""
-    return requests.get(url=url, headers=header, timeout=1)
+    return session.get(url=url, timeout=5)
 
 
-def blocking_post(url, header, data):
+def blocking_post(session: requests.Session, url: str, data: dict):
     """A blocking vesion of requests.post()"""
-    return requests.post(url=url, data=data, headers=header, timeout=1)
+    return session.post(url=url, data=data, timeout=5)
 
 
 class RemoAPI:
@@ -35,7 +43,11 @@ class RemoAPI:
             "setac": Api("1/appliances/{}/aircon_settings", "post"),
             "setlight": Api("1/appliances/{}/light", "post"),
         }
-        self.header = {"Authorization": f"Bearer {self.token}"}
+        self.session = requests.Session()
+        self.session.mount(
+            "https://", HTTPAdapter(max_retries=Retry(total=3, backoff_factor=1))
+        )
+        self.session.headers.update({"Authorization": f"Bearer {self.token}"})
 
     async def get(self, api: Api):
         """An async vesion of requests.get()"""
@@ -49,14 +61,16 @@ class RemoAPI:
             except ImportError:
                 pass
         try:
-            response = await loop.run_in_executor(None, blocking_get, url, self.header)
+            response = await loop.run_in_executor(None, blocking_get, url)
         except Exception as err:
             raise NetworkError from err
         else:
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 401:
+                raise AuthError
             else:
-                raise NetworkError
+                raise NetworkError(f"HTTP response status code {response.status_code}")
 
     async def post(self, api: Api, params: list[str], data: dict):
         """An async vesion of requests.post()"""
@@ -71,9 +85,7 @@ class RemoAPI:
             except ImportError:
                 pass
         try:
-            response = await loop.run_in_executor(
-                None, blocking_post, url, self.header, data
-            )
+            response = await loop.run_in_executor(None, blocking_post, url, data)
         except Exception as err:
             raise NetworkError from err
         else:
