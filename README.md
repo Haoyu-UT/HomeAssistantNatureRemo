@@ -15,6 +15,7 @@ An integration for accessing Nature Remo sensors and appliances from [Home Assis
 * illuminance sensor
 * movement sensor
 * electricity meter
+* Adjustable polling rates for all sensors mentioned above
 
 ## Pros
 * Fully UI-based configuration🤗
@@ -36,9 +37,7 @@ Copy the folder `custom_components/nature_remo` into `<config directory>/custom_
 After installation, restart Home Assistant and add the integration `nature_remo` from settings. During the process you will be asked to enter your API access token; you can get one from [here](https://home.nature.global/).
 
 ## Upgrade
-In addtion to upgrading the package itself, **it is required to delete the hub registered by the integration, restart HA, and add the integration again.**
-<img width="1278" alt="image" src="https://github.com/Haoyu-UT/HomeAssistantNatureRemo/assets/69963492/8d4b0166-f6f0-4105-a933-2f642492eb44">
-
+In addtion to upgrading the package itself, **it is required to restart HA.** \(Migration of outdated configurations is automatically handled now.\)
 
 ## Note
 ### Configuration Changes from Smartphone App
