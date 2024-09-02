@@ -16,7 +16,13 @@ from .api import RemoAPI
 _LOGGER = logging.getLogger(__name__)
 
 # adjust the data schema to the data that you need
-STEP_USER_DATA_SCHEMA = vol.Schema({vol.Required("token"): str})
+STEP_USER_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required("token"): str,
+        vol.Optional("polling_interval_sensor", default=60): int,
+        vol.Optional("polling_interval_power_meter", default=60): int,
+    }
+)
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -26,13 +32,14 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     if not await remo.authenticate():
         raise AuthError
     # Return info that you want to store in the config entry.
-    return {"token": data["token"]}
+    return data
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for nature_remo."""
 
-    VERSION = 1
+    VERSION = 2
+    MINOR_VERSION = 0
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -43,11 +50,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 info = await validate_input(self.hass, user_input)
             except NetworkError:
+                _LOGGER.exception("Network error during config")
                 errors["base"] = "network_error"
             except AuthError:
+                _LOGGER.exception("Authorization failed during config")
                 errors["base"] = "invalid_token"
             except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
+                _LOGGER.exception("Unexpected exception during config")
                 errors["base"] = "unknown"
             else:
                 return self.async_create_entry(title="Nature Remo", data=info)

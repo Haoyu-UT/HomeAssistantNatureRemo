@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import RemoAPI
+from .config_flow import ConfigFlow
 from .const import DOMAIN, NetworkError
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +28,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN][entry.entry_id] = {
             "api": api,
             "appliances": await api.fetch_appliance(),
+            "polling_interval_sensor": entry.data["polling_interval_sensor"],
+            "polling_interval_power_meter": entry.data["polling_interval_power_meter"],
         }
     except NetworkError as e:
         _LOGGER.exception("Setup failed due to network error")
@@ -43,3 +46,39 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ) and await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry):
+    """Migrate old entry."""
+    _LOGGER.info(
+        "Current config entry version is %s.%s",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+    _LOGGER.info("Current config entry contains data %s", config_entry.data)
+
+    if (
+        ConfigFlow.VERSION > config_entry.version
+        or ConfigFlow.MINOR_VERSION > config_entry.minor_version
+    ):
+        # Migration required
+        new_data = config_entry.data.copy()
+        if config_entry.version == 1:
+            #
+            new_data.update(
+                {"polling_interval_sensor": 60, "polling_interval_power_meter": 60}
+            )
+        hass.config_entries.async_update_entry(
+            config_entry,
+            data=new_data,
+            minor_version=ConfigFlow.MINOR_VERSION,
+            version=ConfigFlow.VERSION,
+        )
+
+    _LOGGER.info(
+        "Migrated config entry to version %s.%s",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+
+    return True

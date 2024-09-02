@@ -1,19 +1,22 @@
 {
-    "config": {
-        "abort": {
-            "already_configured": "Device is already configured"
+  "config": {
+    "abort": {
+      "already_configured": "Device is already configured"
+    },
+    "error": {
+      "invalid_token": "Invalid authentication",
+      "network_error": "Failed to connect",
+      "unknown": "Unexpected error"
+    },
+    "step": {
+      "user": {
+        "data": {
+          "token": "Token",
+          "polling_interval_sensor": "Polling interval (sec) for sensors",
+          "polling_interval_power_meter": "Polling interval (sec) for power meter"
         },
-        "error": {
-            "invalid_token": "Invalid authentication",
-            "network_error": "Failed to connect",
-            "unknown": "Unexpected error"
-        },
-        "step": {
-            "user": {
-                "data": {
-                    "token": "token"
-                }
-            }
-        }
+        "description": "Please note that API rate limit is 30 times per 5 minutes. Polling for power meter will be not be excuted if no power meter exists."
+      }
     }
+  }
 }

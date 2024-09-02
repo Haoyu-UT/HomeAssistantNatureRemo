@@ -242,6 +242,7 @@ class AirConditioner(
     mode_target_fan_mode: dict[str, str]
     mode_target_swingmodepair: dict[str, SwingModePair]
 
+
     @property
     def extra_restore_state_data(self) -> restore_state.ExtraStoredData:
         data = {

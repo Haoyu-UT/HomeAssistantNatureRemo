@@ -42,12 +42,13 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up nature remo sensors from a config entry."""
+    entry_storage: dict = hass.data[DOMAIN][entry.entry_id]
     sensors = []
-    api: RemoAPI = hass.data[DOMAIN][entry.entry_id]["api"]
+    api: RemoAPI = entry_storage["api"]
     sensor_data_dic: dict[str, SensorData] = await api.fecth_sensor_data()
     device_name_dic: dict[str, str] = await api.fetch_device_name()
-    coordinator = SensorCoordinator(hass, api)
-    hass.data[DOMAIN][entry.entry_id]["sensor_coordinator"] = coordinator
+    coordinator = SensorCoordinator(hass, api, entry_storage["polling_interval_sensor"])
+    entry_storage["sensor_coordinator"] = coordinator
     for mac, sensor_data in sensor_data_dic.items():
         device_name = device_name_dic[mac]
         if (val := sensor_data.temperature) is not None:
@@ -58,9 +59,11 @@ async def async_setup_entry(
             sensors.append(IlluminanceSensor(coordinator, mac, device_name, val))
         if (val := sensor_data.movement) is not None:
             sensors.append(MovementSensor(coordinator, mac, device_name, val))
-    appliances: Appliances = hass.data[DOMAIN][entry.entry_id]["appliances"]
-    coordinator = ApplianceCoordinator(hass, api)
-    hass.data[DOMAIN][entry.entry_id]["appliance_coordinator"] = coordinator
+    appliances: Appliances = entry_storage["appliances"]
+    coordinator = ApplianceCoordinator(
+        hass, api, entry_storage["polling_interval_power_meter"]
+    )
+    entry_storage["appliance_coordinator"] = coordinator
     for properties in appliances.power_energy_meter:
         mac = properties["device"]["mac_address"]
         device_name = device_name_dic[mac]
@@ -77,20 +80,20 @@ async def async_setup_entry(
             sensors.append(
                 PowerEnergyMeter(epc_item, coordinator, mac, device_name, properties)
             )
-    hass.data[DOMAIN][entry.entry_id]["sensors"] = sensors
+    entry_storage["sensors"] = sensors
     async_add_entities(sensors)
 
 
 class SensorCoordinator(DataUpdateCoordinator):
     """Coordinator for polling Remo sensor data"""
 
-    def __init__(self, hass: HomeAssistant, api: RemoAPI) -> None:
+    def __init__(self, hass: HomeAssistant, api: RemoAPI, update_interval: int) -> None:
         self.api = api
         super().__init__(
             hass,
             _LOGGER,
             name="Remo API Coordinator for sensors",
-            update_interval=datetime.timedelta(seconds=60),
+            update_interval=datetime.timedelta(seconds=update_interval),
             update_method=self.api.fecth_sensor_data,
         )
 
@@ -204,13 +207,13 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
 class ApplianceCoordinator(DataUpdateCoordinator):
     """Coordinator for polling appliance data"""
 
-    def __init__(self, hass: HomeAssistant, api: RemoAPI) -> None:
+    def __init__(self, hass: HomeAssistant, api: RemoAPI, update_interval: int) -> None:
         self.api = api
         super().__init__(
             hass,
             _LOGGER,
             name="Remo API Coordinator for appliances",
-            update_interval=datetime.timedelta(seconds=60),
+            update_interval=datetime.timedelta(seconds=update_interval),
             update_method=self.api.fetch_appliance,
         )
 
