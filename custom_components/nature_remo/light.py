@@ -76,12 +76,16 @@ class RemoLight(LightEntity):
         self.one_button = one_button
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        if not self.is_on:
-            await self.async_toggle(**kwargs)
+        """Turn on the light. Assuming that the real state must be OFF no matter of the internal state."""
+        if self.is_on:
+            self.is_on = False
+        await self.async_toggle(**kwargs)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        if self.is_on:
-            await self.async_toggle(**kwargs)
+        """Turn off the light. Assuming that the real state must be ON no matter of the internal state."""
+        if not self.is_on:
+            self.is_on = True
+        await self.async_toggle(**kwargs)
 
     async def async_toggle(self, **kwargs: Any) -> None:
         self._attr_is_on = not self._attr_is_on
