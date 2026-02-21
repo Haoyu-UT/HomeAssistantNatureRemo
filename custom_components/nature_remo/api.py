@@ -42,6 +42,7 @@ class RemoAPI:
             "sendir": Api("1/signals/{}/send", "post"),
             "setac": Api("1/appliances/{}/aircon_settings", "post"),
             "setlight": Api("1/appliances/{}/light", "post"),
+            "settv": Api("1/appliances/{}/tv", "post"),
         }
         self.session = requests.Session()
         self.session.mount(
@@ -126,7 +127,7 @@ class RemoAPI:
 
     async def fetch_appliance(self) -> Appliances:
         """Fetch all registered appliances"""
-        ac_list, light_list, electricity_meter_list, others_list = [], [], [], []
+        ac_list, light_list, electricity_meter_list, tv_list, others_list = [], [], [], [], []
         remote_api = self.apis["appliances"]
         response = await self.get(remote_api)
         _LOGGER.debug(
@@ -141,9 +142,11 @@ class RemoAPI:
                 light_list.append(properties)
             elif "smart_meter" in properties:
                 electricity_meter_list.append(properties)
+            elif appliance_response.get("type") == "TV":
+                tv_list.append(appliance_response)
             elif "signals" in properties:
                 others_list.append(properties)
-        return Appliances(ac_list, light_list, electricity_meter_list, others_list)
+        return Appliances(ac_list, light_list, electricity_meter_list, tv_list, others_list)
 
     async def send_ir_signal(self, signal_id: str):
         """Send ir signal"""
@@ -168,6 +171,10 @@ class RemoAPI:
     async def send_light_signal(self, app_id: str, button: str):
         """Press button on given light"""
         return await self.post(self.apis["setlight"], [app_id], {"button": button})
+
+    async def send_tv_signal(self, app_id: str, button: str):
+        """Press button on given TV"""
+        return await self.post(self.apis["settv"], [app_id], {"button": button})
 
     async def authenticate(self) -> bool:
         """Test if we can authenticate with the host"""

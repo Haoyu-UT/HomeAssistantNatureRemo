@@ -51,8 +51,52 @@ SensorData = collections.namedtuple(
     "SensorData", ("temperature", "humidity", "illuminance", "movement")
 )
 Appliances = collections.namedtuple(
-    "Appliances", ("ac", "light", "power_energy_meter", "others")
+    "Appliances", ("ac", "light", "power_energy_meter", "tv", "others")
 )
+
+TV_BUTTONS = [
+    "power",
+    "ch+1",
+    "ch-1",
+    "volume+1",
+    "volume-1",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "input",
+    "d-data",
+]
+
+TV_BUTTON_LABEL_MAP = {
+    "power": "電源",
+    "ch+1": "チャンネル+",
+    "ch-1": "チャンネル-",
+    "volume+1": "音量+",
+    "volume-1": "音量-",
+    "1": "CH1",
+    "2": "CH2",
+    "3": "CH3",
+    "4": "CH4",
+    "5": "CH5",
+    "6": "CH6",
+    "7": "CH7",
+    "8": "CH8",
+    "9": "CH9",
+    "10": "CH10",
+    "11": "CH11",
+    "12": "CH12",
+    "input": "入力切替",
+    "d-data": "dボタン",
+}
 AC = collections.namedtuple(
     "AC",
     (
