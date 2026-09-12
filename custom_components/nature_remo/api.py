@@ -8,13 +8,13 @@ See script/generate_models.py.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 import functools
 import logging
+from dataclasses import dataclass
 from typing import Any
 
-from pydantic import TypeAdapter, ValidationError
 import requests
+from pydantic import TypeAdapter, ValidationError
 from requests.adapters import HTTPAdapter, Retry
 
 from .const import Appliances, AuthError, DecodeError, NetworkError, SensorData
