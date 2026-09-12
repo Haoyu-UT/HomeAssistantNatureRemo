@@ -7,6 +7,19 @@ from homeassistant.exceptions import HomeAssistantError
 
 DOMAIN = "nature_remo"
 
+# Keys of the config entry data.
+CONF_TOKEN = "token"
+CONF_POLLING_INTERVAL_SENSOR = "polling_interval_sensor"
+CONF_POLLING_INTERVAL_POWER_METER = "polling_interval_power_meter"
+CONF_LIGHTS = "lights"
+CONF_ON_BUTTON = "on_button"
+CONF_OFF_BUTTON = "off_button"
+
+# Light button names the API uses for plain on/off control.
+BUTTON_ONOFF = "onoff"
+BUTTON_ON = "on"
+BUTTON_OFF = "off"
+
 
 class NetworkError(HomeAssistantError):
     """Error to indicate we cannot connect."""
@@ -16,16 +29,16 @@ class AuthError(HomeAssistantError):
     """Error to indicate there is invalid auth."""
 
 
+class DecodeError(HomeAssistantError):
+    """Error to indicate a payload does not match the API specification."""
+
+
 class NoSignalError(HomeAssistantError):
     """Error to indicate the appliance has no signal binded."""
 
 
 class UnexpectedAC(HomeAssistantError):
     """Error to indicate the AC has an expected configuration."""
-
-
-class UnexpectedLight(HomeAssistantError):
-    """Error to indicate the light has an expected configuration."""
 
 
 class SwingModePair:
@@ -44,9 +57,7 @@ class SwingModePair:
             return (list(filter(bool, [first_part, second_part])) + [""])[0]
 
 
-Api = collections.namedtuple("Api", ("url", "method"))
 Appliance = collections.namedtuple("GeneralAppliance", ("id", "name", "signals"))
-Signal = collections.namedtuple("Signal", ("id", "name"))
 SensorData = collections.namedtuple(
     "SensorData", ("temperature", "humidity", "illuminance", "movement")
 )

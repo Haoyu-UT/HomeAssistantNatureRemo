@@ -1,0 +1,9 @@
+# Local API token used for development; never commit it.
+.env
+
+# Local-only mock responses consumed by api.py when a debugger is attached.
+custom_components/nature_remo/test.py
+
+__pycache__/
+*.py[cod]
+.pytest_cache/

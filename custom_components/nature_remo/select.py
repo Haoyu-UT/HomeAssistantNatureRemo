@@ -14,33 +14,28 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, entity_platform
 
 from .api import RemoAPI
-from .const import DOMAIN, Appliance, Appliances, NoSignalError, Signal
+from .const import DOMAIN, Appliance, Appliances, NoSignalError
+from .models import ApplianceResponse, Signal
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def extract_general_appliance(properties: dict) -> Appliance:
-    """Build general Appliance from given properties"""
-    app_id, app_name = properties["id"], properties["nickname"]
-    signals = []
-    for signal in properties.get("signals", []):
-        signal_id, signal_name = signal["id"], signal["name"]
-        signals.append(Signal(signal_id, signal_name))
-    if signals:
-        return Appliance(app_id, app_name, signals)
-    else:
+def extract_general_appliance(appliance: ApplianceResponse) -> Appliance:
+    """Build a general Appliance from an appliance response"""
+    signals = list(appliance.signals or [])
+    if not signals:
         raise NoSignalError
+    return Appliance(appliance.id, appliance.nickname, signals)
 
 
-def extract_light_appliance(properties: dict) -> Appliance:
-    """Build light Appliance from given properties"""
-    app_id, app_name = properties["id"], properties["nickname"]
-    light_signals = [button["name"] for button in properties["light"]["buttons"]]
-    ir_signals = []
-    for signal in properties.get("signals", []):
-        signal_id, signal_name = signal["id"], signal["name"]
-        ir_signals.append(Signal(signal_id, signal_name))
-    return Appliance(app_id, app_name, light_signals + ir_signals)
+def extract_light_appliance(appliance: ApplianceResponse) -> Appliance:
+    """Build a light Appliance from an appliance response"""
+    light_buttons = [button.name for button in appliance.light.buttons or []]
+    return Appliance(
+        appliance.id,
+        appliance.nickname,
+        light_buttons + list(appliance.signals or []),
+    )
 
 
 async def async_setup_entry(
@@ -60,20 +55,18 @@ async def async_setup_entry(
     appliances: Appliances = hass.data[DOMAIN][entry.entry_id]["appliances"]
     hass.data[DOMAIN][entry.entry_id]["signal_appliances"] = []
     hass.data[DOMAIN][entry.entry_id]["signal_entities"] = []
-    for properties in appliances.others:
+    for response in appliances.others:
         try:
-            appliance: Appliance = extract_general_appliance(properties)
+            appliance: Appliance = extract_general_appliance(response)
         except NoSignalError:
-            logging.exception(
-                "appliance %s has no signal binded", properties["nickname"]
-            )
+            _LOGGER.exception("appliance %s has no signal binded", response.nickname)
         else:
             hass.data[DOMAIN][entry.entry_id]["signal_appliances"].append(appliance)
             signal_entity = SignalEntity(appliance, api)
             hass.data[DOMAIN][entry.entry_id]["signal_entities"].append(signal_entity)
             entities.append(signal_entity)
-    for properties in appliances.light:
-        appliance: Appliance = extract_light_appliance(properties)
+    for response in appliances.light:
+        appliance: Appliance = extract_light_appliance(response)
         hass.data[DOMAIN][entry.entry_id]["signal_appliances"].append(appliance)
         signal_entity = LightSignalEntity(appliance, api)
         hass.data[DOMAIN][entry.entry_id]["signal_entities"].append(signal_entity)
@@ -106,7 +99,7 @@ class SignalEntity(SelectEntity):
     async def send_signal(self):
         """Send signal of current selection"""
         signal_id = self.signals[self.current_option_idx].id
-        return await self.api.send_ir_signal(signal_id)
+        return await self.api.send_signal(signal_id)
 
 
 class LightSignalEntity(SelectEntity):
@@ -140,6 +133,6 @@ class LightSignalEntity(SelectEntity):
     async def send_signal(self):
         """Send signal of current selection"""
         if isinstance(self.current_button, Signal):
-            return await self.api.send_ir_signal(self.current_button.id)
+            return await self.api.send_signal(self.current_button.id)
         elif isinstance(self.current_button, str):
-            return await self.api.send_light_signal(self.light_id, self.current_button)
+            return await self.api.set_light(self.light_id, self.current_button)

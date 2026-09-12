@@ -23,43 +23,48 @@ from .const import (
     DOMAIN,
     HVAC_MODE_ACTION_MAP,
     HVAC_MODE_MAP,
+    HVAC_MODE_REVERSE_MAP,
     ACStatus,
     Appliances,
     ModeSpec,
     SwingModePair,
     UnexpectedAC,
 )
-from .sensor import ApplianceCoordinator, HumiditySensor, TemperatureSensor
+from .models import AirConParams, AirconSettingsResponse, ApplianceResponse
+from .coordinator import ApplianceCoordinator
+from .sensor import HumiditySensor, TemperatureSensor
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def extract_last_settings(settings: dict) -> ACStatus:
-    """Extract last ACStatus from json"""
+def extract_last_settings(settings: AirconSettingsResponse) -> ACStatus:
+    """Extract last ACStatus from an aircon settings response"""
     try:
-        temp = float(settings["temp"])
+        temp = float(settings.temp)
     except ValueError:
         temp = 0.0
     return ACStatus(
-        "off" if settings["button"] == "power-off" else "on",
-        SwingModePair(v=settings["dir"], h=settings["dirh"]),
-        HVAC_MODE_MAP[settings["mode"]],
+        "off" if settings.button == "power-off" else "on",
+        SwingModePair(v=settings.dir, h=settings.dirh),
+        HVAC_MODE_MAP[settings.mode],
         temp,
         UnitOfTemperature.CELSIUS,
-        settings["vol"],
-        datetime.datetime.fromisoformat(settings["updated_at"][:-1] + "+00:00"),
+        settings.vol,
+        datetime.datetime.fromisoformat(settings.updated_at[:-1] + "+00:00"),
     )
 
 
-def extract_ac_properties(properties: dict, sensors: list) -> AC:
-    """Extract AC properties from json"""
-    assert properties["aircon"]["tempUnit"] == "c"
-    assert "power-off" in properties["aircon"]["range"]["fixedButtons"]
+def extract_ac_properties(appliance: ApplianceResponse, sensors: list) -> AC:
+    """Extract AC properties from an appliance response"""
+    assert appliance.aircon is not None
+    assert appliance.device is not None
+    assert appliance.aircon.tempUnit == "c"
+    assert "power-off" in appliance.aircon.range.fixedButtons
     temperature_unit = UnitOfTemperature.CELSIUS
-    ac_name, remo_name = properties["nickname"], properties["device"]["name"]
+    ac_name, remo_name = appliance.nickname, appliance.device.name
     name = f"{ac_name} @ {remo_name}"
-    ac_id = properties["id"]
-    remo_mac = properties["device"]["mac_address"]
+    ac_id = appliance.id
+    remo_mac = appliance.device.mac_address
     temperature_sensor: Optional[TemperatureSensor] = next(
         (
             sensor
@@ -76,7 +81,7 @@ def extract_ac_properties(properties: dict, sensors: list) -> AC:
         ),
         None,
     )
-    ac_properties = properties["aircon"]["range"]["modes"]
+    ac_properties = appliance.aircon.range.modes
     feature_flag = (
         Climate.const.ClimateEntityFeature.TARGET_TEMPERATURE
         | Climate.const.ClimateEntityFeature.FAN_MODE
@@ -91,17 +96,17 @@ def extract_ac_properties(properties: dict, sensors: list) -> AC:
     }
     for mode, mode_properties in ac_properties.items():
         if mode in HVAC_MODE_MAP:
-            swings = mode_properties["dir"]
-            swings_h = mode_properties["dirh"]
+            swings = mode_properties.dir
+            swings_h = mode_properties.dirh
             swingmodepairs = [
                 SwingModePair(*p) for p in itertools.product(swings, swings_h)
             ]
-            fan_modes = mode_properties["vol"]
-            assert len(mode_properties["temp"]) >= 1
-            if len(mode_properties["temp"]) == 1:
+            fan_modes = mode_properties.vol
+            assert len(mode_properties.temp) >= 1
+            if len(mode_properties.temp) == 1:
                 # the case where no adjustable temps are provided
                 try:
-                    temps_str = mode_properties["temp"]
+                    temps_str = mode_properties.temp
                     temps_float = [float(temps_str[0])]
                     modes[HVAC_MODE_MAP[mode]] = ModeSpec(
                         temps_str,
@@ -129,7 +134,7 @@ def extract_ac_properties(properties: dict, sensors: list) -> AC:
                     )
             else:
                 # the normal case where temps are provided and >= 2
-                temps_sorted = sorted((float(t), t) for t in mode_properties["temp"])
+                temps_sorted = sorted((float(t), t) for t in mode_properties.temp)
                 temps_float = [temp_float for temp_float, temp_str in temps_sorted]
                 temps_str = [temp_str for temp_float, temp_str in temps_sorted]
                 # assert temps are equally stepped, and the step is larger than 0.01
@@ -155,10 +160,14 @@ def extract_ac_properties(properties: dict, sensors: list) -> AC:
             _LOGGER.warning(
                 "Unknown AC mode %s; please contact the project maintainer", mode
             )
-    try:
-        last_status = extract_last_settings(properties["settings"])
-    except:
+    if appliance.settings is None:
         last_status = None
+    else:
+        try:
+            last_status = extract_last_settings(appliance.settings)
+        except (KeyError, ValueError):
+            _LOGGER.debug("Could not read the last settings of AC %s", ac_id)
+            last_status = None
     return AC(
         ac_id,
         name,
@@ -216,9 +225,9 @@ async def async_setup_entry(
     sensors = store["sensors"]
     appliances: Appliances = store["appliances"]
     coordinator: ApplianceCoordinator = store["appliance_coordinator"]
-    for properties in appliances.ac:
+    for appliance in appliances.ac:
         try:
-            data = extract_ac_properties(properties, sensors)
+            data = extract_ac_properties(appliance, sensors)
         except Exception as err:
             _LOGGER.critical(
                 "Unexpected AC configuration; please contact the project maintainer"
@@ -355,15 +364,33 @@ class AirConditioner(
             self._attr_max_temp = 0.0
             self.last_update_timestamp = datetime.datetime.now(datetime.UTC)
 
+    def aircon_params(self) -> AirConParams:
+        """Build the request body reproducing the current target state."""
+        mode = self.last_hvac_mode
+        modespec: ModeSpec = self.data.modes[mode]
+        return AirConParams(
+            button="power-off" if self.hvac_mode == Climate.const.HVACMode.OFF else "",
+            operation_mode=HVAC_MODE_REVERSE_MAP[mode],
+            temperature=modespec.temps_str[self.mode_target_temp_idx[mode]],
+            temperature_unit="c",
+            air_volume=self.mode_target_fan_mode[mode],
+            air_direction=self.mode_target_swingmodepair[mode].v,
+            air_direction_h=self.mode_target_swingmodepair[mode].h,
+        )
+
+    async def push_aircon_params(self) -> None:
+        """Send the current target state to the AC."""
+        await self.api.set_aircon_settings(self.data.id, self.aircon_params())
+        self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        properties = next(
-            ac for ac in self.coordinator.data.ac if ac["id"] == self.data.id
-        )
-        fetched_status = extract_last_settings(properties["settings"])
-        if fetched_status.timestamp > self.last_update_timestamp:
-            self.recover_status_from_ac_status(fetched_status)
+        appliance = next(ac for ac in self.coordinator.data.ac if ac.id == self.data.id)
+        if appliance.settings is not None:
+            fetched_status = extract_last_settings(appliance.settings)
+            if fetched_status.timestamp > self.last_update_timestamp:
+                self.recover_status_from_ac_status(fetched_status)
         if self.data.temperature_sensor is not None:
             self._attr_current_temperature = self.data.temperature_sensor.native_value
         if self.data.humidity_sensor is not None:
@@ -379,8 +406,7 @@ class AirConditioner(
         self._attr_target_temperature = 0.0
         self._attr_min_temp = 0.0
         self._attr_max_temp = 0.0
-        await self.api.send_ac_signal(self)
-        self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
+        await self.push_aircon_params()
         self.async_write_ha_state()
 
     async def async_set_hvac_mode(self, hvac_mode: Climate.const.HVACMode) -> None:
@@ -402,8 +428,7 @@ class AirConditioner(
                 self.mode_target_temp_idx[hvac_mode]
             ]
             self._attr_swing_mode = str(self.mode_target_swingmodepair[hvac_mode])
-            await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
+            await self.push_aircon_params()
             self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
@@ -423,8 +448,7 @@ class AirConditioner(
         if new_temp != self.target_temperature:
             self._attr_target_temperature = new_temp
             self.mode_target_temp_idx[self.hvac_mode] = new_temp_idx
-            await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
+            await self.push_aircon_params()
             self.async_write_ha_state()
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
@@ -433,8 +457,7 @@ class AirConditioner(
         if fan_mode != self.fan_mode and fan_mode in self.fan_modes:
             self._attr_fan_mode = fan_mode
             self.mode_target_fan_mode[self.hvac_mode] = fan_mode
-            await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
+            await self.push_aircon_params()
             self.async_write_ha_state()
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
@@ -446,6 +469,5 @@ class AirConditioner(
             self.mode_target_swingmodepair[self.hvac_mode] = next(
                 p for p in modespec.swingmodespairs if str(p) == swing_mode
             )
-            await self.api.send_ac_signal(self)
-            self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
+            await self.push_aircon_params()
             self.async_write_ha_state()

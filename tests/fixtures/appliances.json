@@ -1,0 +1,487 @@
+[
+  {
+    "id": "light-0000-0001",
+    "type": "LIGHT",
+    "nickname": "Living Room Light",
+    "image": "ico_light",
+    "device": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Living Room Remo",
+      "mac_address": "aa:bb:cc:dd:ee:01",
+      "bt_mac_address": "aa:bb:cc:dd:ef:01",
+      "serial_number": "1W000000000001",
+      "firmware_version": "Remo/1.14.9",
+      "temperature_offset": 0,
+      "humidity_offset": 0,
+      "created_at": "2023-01-01T00:00:00Z",
+      "updated_at": "2026-09-12T00:00:00Z",
+      "online": true,
+      "users": []
+    },
+    "model": {
+      "id": "5499e595-33f1-4bca-b48e-fc1a9b58cd74",
+      "country": "JP",
+      "manufacturer": "NEC",
+      "remote_name": "re0402-ch1",
+      "name": "NEC LIGHT 001",
+      "image": "ico_light"
+    },
+    "settings": null,
+    "aircon": null,
+    "signals": [],
+    "light": {
+      "buttons": [
+        {
+          "name": "on",
+          "image": "ico_on",
+          "label": "ON"
+        },
+        {
+          "name": "off",
+          "image": "ico_off",
+          "label": "OFF"
+        },
+        {
+          "name": "on-100",
+          "image": "ico_light_all",
+          "label": "All"
+        },
+        {
+          "name": "on-favorite",
+          "image": "ico_light_favorite",
+          "label": "Favorite"
+        },
+        {
+          "name": "night",
+          "image": "ico_light_night",
+          "label": "Night"
+        },
+        {
+          "name": "bright-up",
+          "image": "ico_arrow_top",
+          "label": "Bright"
+        },
+        {
+          "name": "bright-down",
+          "image": "ico_arrow_bottom",
+          "label": "Dark"
+        },
+        {
+          "name": "colortemp-down",
+          "image": "ico_arrow_right",
+          "label": "Warm"
+        },
+        {
+          "name": "colortemp-up",
+          "image": "ico_arrow_left",
+          "label": "Cold"
+        }
+      ],
+      "state": {
+        "brightness": "100",
+        "power": "on",
+        "last_button": "on"
+      }
+    },
+    "matter_bridged_device_state": "exposed"
+  },
+  {
+    "id": "ac-0000-0001",
+    "type": "AC",
+    "nickname": "Living Room AC",
+    "image": "ico_ac_1",
+    "device": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Living Room Remo",
+      "mac_address": "aa:bb:cc:dd:ee:01",
+      "bt_mac_address": "aa:bb:cc:dd:ef:01",
+      "serial_number": "1W000000000001",
+      "firmware_version": "Remo/1.14.9",
+      "temperature_offset": 0,
+      "humidity_offset": 0,
+      "created_at": "2023-01-01T00:00:00Z",
+      "updated_at": "2026-09-12T00:00:00Z",
+      "online": true,
+      "users": []
+    },
+    "model": {
+      "id": "3f2f4980-94de-436d-8c25-6913ed7b4970",
+      "country": "JP",
+      "manufacturer": "Mitsubishi",
+      "remote_name": "ach221",
+      "series": "",
+      "name": "Mitsubishi AC 078",
+      "image": "ico_ac_1"
+    },
+    "settings": {
+      "temp": "28",
+      "temp_unit": "c",
+      "mode": "cool",
+      "vol": "auto",
+      "dir": "5",
+      "dirh": "",
+      "button": "power-off",
+      "extra": {
+        "autoclean": "off",
+        "dehumid": "strong"
+      },
+      "updated_at": "2026-09-12T04:26:38Z"
+    },
+    "aircon": {
+      "range": {
+        "modes": {
+          "blow": {
+            "temp": [
+              ""
+            ],
+            "dir": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "auto",
+              "swing"
+            ],
+            "dirh": [
+              ""
+            ],
+            "vol": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "auto"
+            ]
+          },
+          "cool": {
+            "temp": [
+              "16",
+              "16.5",
+              "17",
+              "17.5",
+              "18",
+              "18.5",
+              "19",
+              "19.5",
+              "20",
+              "20.5",
+              "21",
+              "21.5",
+              "22",
+              "22.5",
+              "23",
+              "23.5",
+              "24",
+              "24.5",
+              "25",
+              "25.5",
+              "26",
+              "26.5",
+              "27",
+              "27.5",
+              "28",
+              "28.5",
+              "29",
+              "29.5",
+              "30",
+              "30.5",
+              "31"
+            ],
+            "dir": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "auto",
+              "swing"
+            ],
+            "dirh": [
+              ""
+            ],
+            "vol": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "auto"
+            ]
+          },
+          "dry": {
+            "temp": [
+              "0"
+            ],
+            "dir": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "auto",
+              "swing"
+            ],
+            "dirh": [
+              ""
+            ],
+            "vol": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "auto"
+            ]
+          },
+          "warm": {
+            "temp": [
+              "16",
+              "16.5",
+              "17",
+              "17.5",
+              "18",
+              "18.5",
+              "19",
+              "19.5",
+              "20",
+              "20.5",
+              "21",
+              "21.5",
+              "22",
+              "22.5",
+              "23",
+              "23.5",
+              "24",
+              "24.5",
+              "25",
+              "25.5",
+              "26",
+              "26.5",
+              "27",
+              "27.5",
+              "28",
+              "28.5",
+              "29",
+              "29.5",
+              "30",
+              "30.5",
+              "31"
+            ],
+            "dir": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "auto",
+              "swing"
+            ],
+            "dirh": [
+              ""
+            ],
+            "vol": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "auto"
+            ]
+          }
+        },
+        "fixedButtons": [
+          "power-off"
+        ],
+        "extras": [
+          {
+            "id": "autoclean",
+            "text": "Mold Proof",
+            "description": "Automatically performs internal drying operation to prevent mold.",
+            "type": "choice",
+            "options": [
+              {
+                "value": "off",
+                "text": "Off",
+                "default": true
+              },
+              {
+                "value": "on",
+                "text": "On"
+              }
+            ],
+            "availability": "available"
+          },
+          {
+            "id": "dehumid",
+            "text": "Dehumidify",
+            "description": "Set the dehumidification level.",
+            "type": "choice",
+            "options": [
+              {
+                "value": "strong",
+                "text": "Strong"
+              },
+              {
+                "value": "normal",
+                "text": "Normal",
+                "default": true
+              },
+              {
+                "value": "weak",
+                "text": "Weak"
+              }
+            ],
+            "availability": "hidden"
+          }
+        ]
+      },
+      "tempUnit": "c"
+    },
+    "signals": [],
+    "matter_bridged_device_state": "exposed",
+    "revision": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "id": "light-0000-0002",
+    "type": "LIGHT",
+    "nickname": "Hallway Light",
+    "image": "ico_light",
+    "device": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Living Room Remo",
+      "mac_address": "aa:bb:cc:dd:ee:01",
+      "bt_mac_address": "aa:bb:cc:dd:ef:01",
+      "serial_number": "1W000000000001",
+      "firmware_version": "Remo/1.14.9",
+      "temperature_offset": 0,
+      "humidity_offset": 0,
+      "created_at": "2023-01-01T00:00:00Z",
+      "updated_at": "2026-09-12T00:00:00Z",
+      "online": true,
+      "users": []
+    },
+    "model": {
+      "id": "5499e595-33f1-4bca-b48e-fc1a9b58cd74",
+      "country": "JP",
+      "manufacturer": "NEC",
+      "remote_name": "re0402-ch1",
+      "name": "NEC LIGHT 001",
+      "image": "ico_light"
+    },
+    "settings": null,
+    "aircon": null,
+    "signals": [],
+    "light": {
+      "buttons": [
+        {
+          "name": "onoff",
+          "image": "ico_on",
+          "label": "ON/OFF"
+        },
+        {
+          "name": "bright-up",
+          "image": "ico_arrow_top",
+          "label": "Bright"
+        },
+        {
+          "name": "bright-down",
+          "image": "ico_arrow_bottom",
+          "label": "Dark"
+        }
+      ],
+      "state": {
+        "brightness": "",
+        "power": "off",
+        "last_button": ""
+      }
+    },
+    "matter_bridged_device_state": "exposed"
+  },
+  {
+    "id": "meter-0000-0001",
+    "type": "EL_SMART_METER",
+    "nickname": "Smart Meter",
+    "image": "ico_smartmeter",
+    "model": null,
+    "signals": [],
+    "device": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Living Room Remo",
+      "mac_address": "aa:bb:cc:dd:ee:01",
+      "bt_mac_address": "aa:bb:cc:dd:ef:01",
+      "serial_number": "1W000000000001",
+      "firmware_version": "Remo/1.14.9",
+      "temperature_offset": 0,
+      "humidity_offset": 0,
+      "created_at": "2023-01-01T00:00:00Z",
+      "updated_at": "2026-09-12T00:00:00Z",
+      "online": true,
+      "users": []
+    },
+    "smart_meter": {
+      "echonetlite_properties": [
+        {
+          "name": "measured_instantaneous",
+          "epc": 231,
+          "val": "580",
+          "updated_at": "2026-09-12T04:00:00Z"
+        },
+        {
+          "name": "normal_direction_cumulative_electric_energy",
+          "epc": 224,
+          "val": "123456",
+          "updated_at": "2026-09-12T04:00:00Z"
+        },
+        {
+          "name": "cumulative_electric_energy_effective_digits",
+          "epc": 215,
+          "val": "6",
+          "updated_at": "2026-09-12T04:00:00Z"
+        },
+        {
+          "name": "coefficient",
+          "epc": 211,
+          "val": "1",
+          "updated_at": "2026-09-12T04:00:00Z"
+        },
+        {
+          "name": "cumulative_electric_energy_unit",
+          "epc": 225,
+          "val": "1",
+          "updated_at": "2026-09-12T04:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ir-0000-0001",
+    "type": "IR",
+    "nickname": "Speaker",
+    "image": "ico_speaker",
+    "model": null,
+    "device": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Living Room Remo",
+      "mac_address": "aa:bb:cc:dd:ee:01",
+      "bt_mac_address": "aa:bb:cc:dd:ef:01",
+      "serial_number": "1W000000000001",
+      "firmware_version": "Remo/1.14.9",
+      "temperature_offset": 0,
+      "humidity_offset": 0,
+      "created_at": "2023-01-01T00:00:00Z",
+      "updated_at": "2026-09-12T00:00:00Z",
+      "online": true,
+      "users": []
+    },
+    "signals": [
+      {
+        "id": "signal-0001",
+        "name": "Power",
+        "image": "ico_io"
+      },
+      {
+        "id": "signal-0002",
+        "name": "Volume Up",
+        "image": "ico_plus"
+      }
+    ]
+  }
+]

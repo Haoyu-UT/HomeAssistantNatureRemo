@@ -16,6 +16,14 @@
           "polling_interval_power_meter": "Polling interval (sec) for power meter"
         },
         "description": "Please note that API rate limit is 30 times per 5 minutes. Polling for power meter will be not be excuted if no power meter exists."
+      },
+      "light": {
+        "title": "Buttons for {name}",
+        "data": {
+          "on_button": "Button that turns the light on",
+          "off_button": "Button that turns the light off"
+        },
+        "description": "Light {current} of {total}: {name}.\n\nChoose the button on the remote that turns this light on, and the one that turns it off. If the remote has only a single toggle button, choose that same button for both; the light can then only be toggled."
       }
     }
   }

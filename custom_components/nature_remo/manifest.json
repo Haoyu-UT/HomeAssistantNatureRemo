@@ -4,14 +4,16 @@
   "codeowners": [
     "@Haoyu-UT"
   ],
-  "version": "1.0.8",
+  "version": "1.2.0",
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/Haoyu-UT/HomeAssistantNatureRemo/blob/main/README.md",
   "homekit": {},
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "requirements": [],
+  "requirements": [
+    "pydantic>=2,<3"
+  ],
   "ssdp": [],
   "zeroconf": [],
   "issue_tracker": "https://github.com/Haoyu-UT/HomeAssistantNatureRemo/issues",
