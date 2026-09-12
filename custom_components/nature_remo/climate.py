@@ -6,14 +6,13 @@ import itertools
 import logging
 from typing import Any, Optional
 
-import voluptuous as vol
-
 import homeassistant.components.climate as Climate
+import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_platform, restore_state
-import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -30,8 +29,8 @@ from .const import (
     SwingModePair,
     UnexpectedAC,
 )
-from .models import AirConParams, AirconSettingsResponse, ApplianceResponse
 from .coordinator import ApplianceCoordinator
+from .models import AirConParams, AirconSettingsResponse, ApplianceResponse
 from .sensor import HumiditySensor, TemperatureSensor
 
 _LOGGER = logging.getLogger(__name__)

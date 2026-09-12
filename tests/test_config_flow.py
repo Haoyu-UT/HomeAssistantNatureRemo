@@ -16,6 +16,7 @@ from custom_components.nature_remo.const import (
     CONF_ON_BUTTON,
     CONF_POLLING_INTERVAL_POWER_METER,
     CONF_POLLING_INTERVAL_SENSOR,
+    CONF_TEST_BUTTON,
     CONF_TOKEN,
     AuthError,
     NetworkError,
@@ -51,6 +52,28 @@ def answer_with_fixture(monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(config_flow_module, "validate_input", validate_input)
 
     return install
+
+
+class FakeRemo:
+    """Stands in for RemoAPI in the flow, recording the buttons sent."""
+
+    def __init__(self, token: str) -> None:
+        self.token = token
+        self.sent: list[tuple[str, str]] = []
+        self.error: Exception | None = None
+
+    async def set_light(self, appliance_id: str, button: str) -> None:
+        if self.error is not None:
+            raise self.error
+        self.sent.append((appliance_id, button))
+
+
+@pytest.fixture(name="remo")
+def remo_fixture(monkeypatch: pytest.MonkeyPatch) -> FakeRemo:
+    """Replace the API client the flow builds, so no button is really sent."""
+    remo = FakeRemo("test-token")
+    monkeypatch.setattr(config_flow_module, "RemoAPI", lambda token: remo)
+    return remo
 
 
 def schema_defaults(result: dict[str, Any]) -> dict[str, Any]:
@@ -169,6 +192,90 @@ async def test_the_form_preselects_a_lone_toggle_for_both(
     answer_with(lights[1:])
     flow = ConfigFlow()
     result = await flow.async_step_user(USER_INPUT)
+    assert schema_defaults(result) == {
+        CONF_ON_BUTTON: "onoff",
+        CONF_OFF_BUTTON: "onoff",
+    }
+
+
+async def test_trying_a_button_sends_it_and_shows_the_form_again(
+    answer_with, remo: FakeRemo, lights: list[ApplianceResponse]
+) -> None:
+    """A button in the test field is sent, and the same light is asked again."""
+    answer_with(lights)
+    flow = ConfigFlow()
+    await flow.async_step_user(USER_INPUT)
+
+    result = await flow.async_step_light(
+        {CONF_ON_BUTTON: "on-100", CONF_OFF_BUTTON: "night", CONF_TEST_BUTTON: "night"}
+    )
+    assert remo.sent == [("light-0000-0001", "night")]
+    assert result["type"] == "form"
+    assert result["step_id"] == "light"
+    assert result["errors"] == {}
+    assert result["description_placeholders"]["name"] == "Living Room Light"
+    # The picks survive, and the test field is empty so the next submit saves.
+    assert schema_defaults(result) == {
+        CONF_ON_BUTTON: "on-100",
+        CONF_OFF_BUTTON: "night",
+    }
+    assert schema_options(result, CONF_TEST_BUTTON) == schema_options(
+        result, CONF_ON_BUTTON
+    )
+
+    result = await flow.async_step_light(
+        {CONF_ON_BUTTON: "on-100", CONF_OFF_BUTTON: "night"}
+    )
+    assert result["description_placeholders"]["name"] == "Hallway Light"
+    assert flow._data[CONF_LIGHTS] == {
+        "light-0000-0001": {CONF_ON_BUTTON: "on-100", CONF_OFF_BUTTON: "night"}
+    }
+    assert remo.sent == [("light-0000-0001", "night")]
+
+
+async def test_the_flow_sends_with_the_entered_token(
+    answer_with, monkeypatch: pytest.MonkeyPatch, lights: list[ApplianceResponse]
+) -> None:
+    """The client used for trying buttons is built from the validated token."""
+    tokens: list[str] = []
+
+    def build(token: str) -> FakeRemo:
+        tokens.append(token)
+        return FakeRemo(token)
+
+    monkeypatch.setattr(config_flow_module, "RemoAPI", build)
+    answer_with(lights)
+    await ConfigFlow().async_step_user(USER_INPUT)
+    assert tokens == ["test-token"]
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        pytest.param(NetworkError(), "send_failed", id="network"),
+        pytest.param(AuthError(), "invalid_token", id="auth"),
+        pytest.param(RuntimeError("boom"), "unknown", id="unexpected"),
+    ],
+)
+async def test_a_failed_send_is_reported_on_the_form(
+    answer_with,
+    remo: FakeRemo,
+    lights: list[ApplianceResponse],
+    error: Exception,
+    expected: str,
+) -> None:
+    """A button that cannot be sent shows an error but keeps the flow going."""
+    answer_with(lights[1:])
+    flow = ConfigFlow()
+    await flow.async_step_user(USER_INPUT)
+    remo.error = error
+
+    result = await flow.async_step_light(
+        {CONF_ON_BUTTON: "onoff", CONF_OFF_BUTTON: "onoff", CONF_TEST_BUTTON: "onoff"}
+    )
+    assert result["type"] == "form"
+    assert result["step_id"] == "light"
+    assert result["errors"] == {"base": expected}
     assert schema_defaults(result) == {
         CONF_ON_BUTTON: "onoff",
         CONF_OFF_BUTTON: "onoff",

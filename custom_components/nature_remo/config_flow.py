@@ -6,7 +6,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
@@ -18,6 +17,7 @@ from .const import (
     CONF_ON_BUTTON,
     CONF_POLLING_INTERVAL_POWER_METER,
     CONF_POLLING_INTERVAL_SENSOR,
+    CONF_TEST_BUTTON,
     CONF_TOKEN,
     DOMAIN,
     AuthError,
@@ -54,6 +54,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize the flow."""
         self._data: dict[str, Any] = {}
+        self._remo: RemoAPI | None = None
         self._lights: list[ApplianceResponse] = []
         self._light_index = 0
 
@@ -76,6 +77,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 self._data = {**user_input, CONF_LIGHTS: {}}
+                self._remo = RemoAPI(user_input[CONF_TOKEN])
                 # Lights whose remote offers no button cannot be switched, so
                 # there is nothing to ask about.
                 self._lights = [light for light in lights if button_choices(light)]
@@ -94,9 +96,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         One form per light, because the buttons a remote offers differ between
         them.  Picking the same button twice means the remote has only a
         toggle, and the light is then switched by toggling.
+
+        Submitting with a button in the test field sends that button instead of
+        moving on, so the user can watch what it does; the form comes back with
+        their picks kept and the test field cleared.
         """
         if user_input is not None:
             appliance = self._lights[self._light_index]
+            test_button = user_input.get(CONF_TEST_BUTTON)
+            if test_button:
+                errors = await self._send_test_button(appliance, test_button)
+                return self._show_light_form(appliance, user_input, errors)
             self._data[CONF_LIGHTS][appliance.id] = {
                 CONF_ON_BUTTON: user_input[CONF_ON_BUTTON],
                 CONF_OFF_BUTTON: user_input[CONF_OFF_BUTTON],
@@ -106,7 +116,33 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._light_index >= len(self._lights):
             return self.async_create_entry(title="Nature Remo", data=self._data)
 
-        appliance = self._lights[self._light_index]
+        return self._show_light_form(self._lights[self._light_index])
+
+    async def _send_test_button(
+        self, appliance: ApplianceResponse, button: str
+    ) -> dict[str, str]:
+        """Send ``button`` to the light and return the form errors it caused."""
+        assert self._remo is not None
+        try:
+            await self._remo.set_light(appliance.id, button)
+        except NetworkError:
+            _LOGGER.exception("Failed to send button %s to %s", button, appliance.id)
+            return {"base": "send_failed"}
+        except AuthError:
+            _LOGGER.exception("Authorization failed while sending a button")
+            return {"base": "invalid_token"}
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Unexpected exception while sending a button")
+            return {"base": "unknown"}
+        return {}
+
+    def _show_light_form(
+        self,
+        appliance: ApplianceResponse,
+        picks: dict[str, Any] | None = None,
+        errors: dict[str, str] | None = None,
+    ) -> FlowResult:
+        """Show the button form for ``appliance``, pre-selecting ``picks``."""
         choices = button_choices(appliance)
         options = [
             selector.SelectOptionDict(value=name, label=label)
@@ -117,15 +153,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 options=options, mode=selector.SelectSelectorMode.DROPDOWN
             )
         )
-        default_on, default_off = default_buttons(list(choices))
+        if picks is not None:
+            default_on, default_off = picks[CONF_ON_BUTTON], picks[CONF_OFF_BUTTON]
+        else:
+            default_on, default_off = default_buttons(list(choices))
         return self.async_show_form(
             step_id="light",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_ON_BUTTON, default=default_on): button_selector,
                     vol.Required(CONF_OFF_BUTTON, default=default_off): button_selector,
+                    vol.Optional(CONF_TEST_BUTTON): button_selector,
                 }
             ),
+            errors=errors or {},
             description_placeholders={
                 "name": appliance.nickname,
                 "current": str(self._light_index + 1),

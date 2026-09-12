@@ -85,7 +85,6 @@ class TemperatureSensor(CoordinatorEntity, SensorEntity):
     _attr_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_has_entity_name = True
-    _attr_should_poll = True
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -111,7 +110,6 @@ class HumiditySensor(CoordinatorEntity, SensorEntity):
     _attr_unit_of_measurement = PERCENTAGE
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_has_entity_name = True
-    _attr_should_poll = True
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.HUMIDITY
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -137,7 +135,6 @@ class IlluminanceSensor(CoordinatorEntity, SensorEntity):
     _attr_unit_of_measurement = LIGHT_LUX
     _attr_native_unit_of_measurement = LIGHT_LUX
     _attr_has_entity_name = True
-    _attr_should_poll = True
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.ILLUMINANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -161,7 +158,6 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
     """Class providing movement sensor function"""
 
     _attr_has_entity_name = True
-    _attr_should_poll = True
     _attr_device_info = {}
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
@@ -189,7 +185,6 @@ class PowerEnergyMeter(CoordinatorEntity, SensorEntity):
     """Class providing electricity or power meter function"""
 
     _attr_has_entity_name = True
-    _attr_should_poll = True
     _attr_device_info = {}
     _attr_native_value = 0.0
 

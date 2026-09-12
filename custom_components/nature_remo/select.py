@@ -3,7 +3,6 @@
 import logging
 
 import voluptuous as vol
-
 from homeassistant.components.select import (
     ATTR_OPTION,
     SERVICE_SELECT_OPTION,
@@ -11,7 +10,8 @@ from homeassistant.components.select import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_platform
 
 from .api import RemoAPI
 from .const import DOMAIN, Appliance, Appliances, NoSignalError
