@@ -31,7 +31,8 @@ from .const import (
     UnexpectedAC,
 )
 from .models import AirConParams, AirconSettingsResponse, ApplianceResponse
-from .sensor import ApplianceCoordinator, HumiditySensor, TemperatureSensor
+from .coordinator import ApplianceCoordinator
+from .sensor import HumiditySensor, TemperatureSensor
 
 _LOGGER = logging.getLogger(__name__)
 

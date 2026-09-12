@@ -18,6 +18,7 @@ from .const import (
     DOMAIN,
     NetworkError,
 )
+from .coordinator import ApplianceCoordinator, SensorCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 # List the platforms that you want to support.
@@ -32,17 +33,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     api = RemoAPI(entry.data[CONF_TOKEN])
     try:
-        hass.data[DOMAIN][entry.entry_id] = {
-            "api": api,
-            "appliances": await api.fetch_grouped_appliances(),
-            "polling_interval_sensor": entry.data[CONF_POLLING_INTERVAL_SENSOR],
-            "polling_interval_power_meter": entry.data[
-                CONF_POLLING_INTERVAL_POWER_METER
-            ],
-        }
+        appliances = await api.fetch_grouped_appliances()
     except NetworkError as e:
         _LOGGER.exception("Setup failed due to network error")
         raise ConfigEntryNotReady from e
+    polling_interval_sensor = entry.data[CONF_POLLING_INTERVAL_SENSOR]
+    polling_interval_power_meter = entry.data[CONF_POLLING_INTERVAL_POWER_METER]
+    # Built here, not in a platform: the platforms are set up concurrently, so
+    # one cannot rely on a coordinator another has built.
+    hass.data[DOMAIN][entry.entry_id] = {
+        "api": api,
+        "appliances": appliances,
+        "polling_interval_sensor": polling_interval_sensor,
+        "polling_interval_power_meter": polling_interval_power_meter,
+        "sensor_coordinator": SensorCoordinator(hass, api, polling_interval_sensor),
+        "appliance_coordinator": ApplianceCoordinator(
+            hass, api, polling_interval_power_meter
+        ),
+    }
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await hass.config_entries.async_forward_entry_setups(entry, SUBPLATFORMS)
     return True

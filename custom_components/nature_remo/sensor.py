@@ -18,10 +18,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import RemoAPI
 from .const import (
@@ -48,8 +45,7 @@ async def async_setup_entry(
     api: RemoAPI = entry_storage["api"]
     sensor_data_dic: dict[str, SensorData] = await api.fetch_sensor_data()
     device_name_dic: dict[str, str] = await api.fetch_device_names()
-    coordinator = SensorCoordinator(hass, api, entry_storage["polling_interval_sensor"])
-    entry_storage["sensor_coordinator"] = coordinator
+    coordinator = entry_storage["sensor_coordinator"]
     for mac, sensor_data in sensor_data_dic.items():
         device_name = device_name_dic[mac]
         if (val := sensor_data.temperature) is not None:
@@ -61,10 +57,7 @@ async def async_setup_entry(
         if (val := sensor_data.movement) is not None:
             sensors.append(MovementSensor(coordinator, mac, device_name, val))
     appliances: Appliances = entry_storage["appliances"]
-    coordinator = ApplianceCoordinator(
-        hass, api, entry_storage["polling_interval_power_meter"]
-    )
-    entry_storage["appliance_coordinator"] = coordinator
+    coordinator = entry_storage["appliance_coordinator"]
     for appliance in appliances.power_energy_meter:
         mac = appliance.device.mac_address
         device_name = device_name_dic[mac]
@@ -84,20 +77,6 @@ async def async_setup_entry(
             )
     entry_storage["sensors"] = sensors
     async_add_entities(sensors)
-
-
-class SensorCoordinator(DataUpdateCoordinator):
-    """Coordinator for polling Remo sensor data"""
-
-    def __init__(self, hass: HomeAssistant, api: RemoAPI, update_interval: int) -> None:
-        self.api = api
-        super().__init__(
-            hass,
-            _LOGGER,
-            name="Remo API Coordinator for sensors",
-            update_interval=datetime.timedelta(seconds=update_interval),
-            update_method=self.api.fetch_sensor_data,
-        )
 
 
 class TemperatureSensor(CoordinatorEntity, SensorEntity):
@@ -204,20 +183,6 @@ class MovementSensor(CoordinatorEntity, SensorEntity):
         time_str = self.coordinator.data[self.mac].movement
         self._attr_native_value = self.timestamp_to_datetime(time_str)
         self.async_write_ha_state()
-
-
-class ApplianceCoordinator(DataUpdateCoordinator):
-    """Coordinator for polling appliance data"""
-
-    def __init__(self, hass: HomeAssistant, api: RemoAPI, update_interval: int) -> None:
-        self.api = api
-        super().__init__(
-            hass,
-            _LOGGER,
-            name="Remo API Coordinator for appliances",
-            update_interval=datetime.timedelta(seconds=update_interval),
-            update_method=self.api.fetch_grouped_appliances,
-        )
 
 
 class PowerEnergyMeter(CoordinatorEntity, SensorEntity):
