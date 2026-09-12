@@ -14,6 +14,8 @@ CONF_POLLING_INTERVAL_POWER_METER = "polling_interval_power_meter"
 CONF_LIGHTS = "lights"
 CONF_ON_BUTTON = "on_button"
 CONF_OFF_BUTTON = "off_button"
+# Config flow field for sending a button while choosing; never stored.
+CONF_TEST_BUTTON = "test_button"
 
 # Light button names the API uses for plain on/off control.
 BUTTON_ONOFF = "onoff"
