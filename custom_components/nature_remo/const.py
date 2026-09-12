@@ -41,10 +41,6 @@ class UnexpectedAC(HomeAssistantError):
     """Error to indicate the AC has an expected configuration."""
 
 
-class UnexpectedLight(HomeAssistantError):
-    """Error to indicate the light has an expected configuration."""
-
-
 class SwingModePair:
     """Class storing vertical and horizontal swing modes."""
 

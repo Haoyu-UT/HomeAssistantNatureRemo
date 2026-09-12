@@ -11,6 +11,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from .api import RemoAPI
 from .config_flow import ConfigFlow
 from .const import (
+    CONF_LIGHTS,
     CONF_POLLING_INTERVAL_POWER_METER,
     CONF_POLLING_INTERVAL_SENSOR,
     CONF_TOKEN,
@@ -72,13 +73,15 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry):
         # Migration required
         new_data = config_entry.data.copy()
         if config_entry.version == 1:
-            #
             new_data.update(
                 {
                     CONF_POLLING_INTERVAL_SENSOR: 60,
                     CONF_POLLING_INTERVAL_POWER_METER: 60,
                 }
             )
+        # Entries made before the setup flow asked about light buttons carry no
+        # choice; the light platform falls back to detecting the buttons.
+        new_data.setdefault(CONF_LIGHTS, {})
         hass.config_entries.async_update_entry(
             config_entry,
             data=new_data,

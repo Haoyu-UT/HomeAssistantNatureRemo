@@ -8,14 +8,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 
 from .api import RemoAPI
-from .const import (
-    BUTTON_OFF,
-    BUTTON_ON,
-    BUTTON_ONOFF,
-    DOMAIN,
-    Appliances,
-    UnexpectedLight,
-)
+from .const import DOMAIN, Appliances
+from .light_buttons import resolve_buttons
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,17 +40,17 @@ async def async_setup_entry(
     api: RemoAPI = hass.data[DOMAIN][entry.entry_id]["api"]
     appliances: Appliances = hass.data[DOMAIN][entry.entry_id]["appliances"]
     for appliance in appliances.light:
-        buttons = [button.name for button in appliance.light.buttons or []]
-        if BUTTON_ONOFF in buttons:
-            one_button = True
-        elif BUTTON_ON in buttons and BUTTON_OFF in buttons:
-            one_button = False
-        else:
-            _LOGGER.critical(
-                "Unexpected light configuration; please contact the project maintainer"
+        buttons = resolve_buttons(entry.data, appliance)
+        if buttons is None:
+            _LOGGER.error(
+                "Light %s exposes no button, so it cannot be switched",
+                appliance.nickname,
             )
-            raise UnexpectedLight
-        entities.append(RemoLight(appliance.id, appliance.nickname, one_button, api))
+            continue
+        on_button, off_button = buttons
+        entities.append(
+            RemoLight(appliance.id, appliance.nickname, on_button, off_button, api)
+        )
     async_add_entities(entities)
 
 
@@ -69,31 +63,60 @@ class RemoLight(LightEntity):
     _attr_is_on = False
 
     def __init__(
-        self, light_id: str, name: str, one_button: bool, api: RemoAPI
+        self,
+        light_id: str,
+        name: str,
+        on_button: str,
+        off_button: str,
+        api: RemoAPI,
     ) -> None:
         self.light_id = light_id
         self.api = api
         self._attr_name = name
         self._attr_unique_id = f"{name} @ {light_id}"
-        self.one_button = one_button
+        self.on_button = on_button
+        self.off_button = off_button
+
+    @property
+    def toggle_only(self) -> bool:
+        """Whether the same button was chosen for on and for off."""
+        return self.on_button == self.off_button
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn on the light. Assuming that the real state must be OFF no matter of the internal state."""
+        """Turn on the light.
+
+        With separate buttons the on button says what it does, so it is sent
+        directly.  A single toggle button can only be toggled, so the real
+        state is assumed to be off; use toggle instead where that matters.
+        """
+        if not self.toggle_only:
+            self._attr_is_on = True
+            await self.api.set_light(self.light_id, self.on_button)
+            return
         if self.is_on:
-            self.is_on = False
+            self._attr_is_on = False
         await self.async_toggle(**kwargs)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn off the light. Assuming that the real state must be ON no matter of the internal state."""
+        """Turn off the light.
+
+        The mirror of async_turn_on: sent directly where an off button exists,
+        otherwise the real state is assumed to be on and the light is toggled.
+        """
+        if not self.toggle_only:
+            self._attr_is_on = False
+            await self.api.set_light(self.light_id, self.off_button)
+            return
         if not self.is_on:
-            self.is_on = True
+            self._attr_is_on = True
         await self.async_toggle(**kwargs)
 
     async def async_toggle(self, **kwargs: Any) -> None:
+        """Toggle the light.
+
+        When on and off are the same button this sends it either way, which is
+        what toggling a single-button remote means.
+        """
         self._attr_is_on = not self._attr_is_on
-        if self.one_button:
-            await self.api.set_light(self.light_id, BUTTON_ONOFF)
-        elif self._attr_is_on:
-            await self.api.set_light(self.light_id, BUTTON_ON)
-        else:
-            await self.api.set_light(self.light_id, BUTTON_OFF)
+        button = self.on_button if self._attr_is_on else self.off_button
+        await self.api.set_light(self.light_id, button)
