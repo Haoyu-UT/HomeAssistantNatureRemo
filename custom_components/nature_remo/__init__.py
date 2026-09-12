@@ -10,7 +10,13 @@ from homeassistant.exceptions import ConfigEntryNotReady
 
 from .api import RemoAPI
 from .config_flow import ConfigFlow
-from .const import DOMAIN, NetworkError
+from .const import (
+    CONF_POLLING_INTERVAL_POWER_METER,
+    CONF_POLLING_INTERVAL_SENSOR,
+    CONF_TOKEN,
+    DOMAIN,
+    NetworkError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 # List the platforms that you want to support.
@@ -23,13 +29,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up nature_remo from a config entry."""
 
     hass.data.setdefault(DOMAIN, {})
-    api = RemoAPI(entry.data["token"])
+    api = RemoAPI(entry.data[CONF_TOKEN])
     try:
         hass.data[DOMAIN][entry.entry_id] = {
             "api": api,
-            "appliances": await api.fetch_appliance(),
-            "polling_interval_sensor": entry.data["polling_interval_sensor"],
-            "polling_interval_power_meter": entry.data["polling_interval_power_meter"],
+            "appliances": await api.fetch_grouped_appliances(),
+            "polling_interval_sensor": entry.data[CONF_POLLING_INTERVAL_SENSOR],
+            "polling_interval_power_meter": entry.data[
+                CONF_POLLING_INTERVAL_POWER_METER
+            ],
         }
     except NetworkError as e:
         _LOGGER.exception("Setup failed due to network error")
@@ -66,7 +74,10 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry):
         if config_entry.version == 1:
             #
             new_data.update(
-                {"polling_interval_sensor": 60, "polling_interval_power_meter": 60}
+                {
+                    CONF_POLLING_INTERVAL_SENSOR: 60,
+                    CONF_POLLING_INTERVAL_POWER_METER: 60,
+                }
             )
         hass.config_entries.async_update_entry(
             config_entry,

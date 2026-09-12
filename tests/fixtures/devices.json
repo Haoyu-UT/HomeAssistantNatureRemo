@@ -1,0 +1,56 @@
+[
+  {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "name": "Living Room Remo",
+    "mac_address": "aa:bb:cc:dd:ee:01",
+    "bt_mac_address": "aa:bb:cc:dd:ef:01",
+    "serial_number": "1W000000000001",
+    "firmware_version": "Remo/1.14.9",
+    "temperature_offset": 0,
+    "humidity_offset": 0,
+    "created_at": "2023-01-01T00:00:00Z",
+    "updated_at": "2026-09-12T00:00:00Z",
+    "online": true,
+    "users": [],
+    "newest_events": {
+      "te": {
+        "val": 26.5,
+        "created_at": "2026-09-12T04:00:00Z"
+      },
+      "hu": {
+        "val": 55,
+        "created_at": "2026-09-12T04:00:00Z"
+      },
+      "il": {
+        "val": 120.5,
+        "created_at": "2026-09-12T04:00:00Z"
+      },
+      "mo": {
+        "val": 1,
+        "created_at": "2026-09-12T03:59:00Z"
+      }
+    }
+  },
+  {
+    "id": "22222222-2222-4222-8222-222222222222",
+    "name": "Bedroom Remo",
+    "mac_address": "aa:bb:cc:dd:ee:02",
+    "bt_mac_address": "aa:bb:cc:dd:ef:02",
+    "serial_number": "1W000000000002",
+    "firmware_version": "Remo/1.14.9",
+    "temperature_offset": 0,
+    "humidity_offset": 0,
+    "created_at": "2023-01-01T00:00:00Z",
+    "updated_at": "2026-09-12T00:00:00Z",
+    "online": true,
+    "users": [],
+    "bridged_devices_limit": 8,
+    "commissionee_fabrics_limit": 5,
+    "newest_events": {
+      "te": {
+        "val": 24,
+        "created_at": "2026-09-12T04:00:00Z"
+      }
+    }
+  }
+]

@@ -1,0 +1,4 @@
+# Running the tests needs Home Assistant importable, plus:
+pydantic
+pytest
+pytest-asyncio

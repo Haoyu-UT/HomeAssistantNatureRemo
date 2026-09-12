@@ -8,7 +8,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 
 from .api import RemoAPI
-from .const import DOMAIN, Appliances, UnexpectedLight
+from .const import (
+    BUTTON_OFF,
+    BUTTON_ON,
+    BUTTON_ONOFF,
+    DOMAIN,
+    Appliances,
+    UnexpectedLight,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,23 +45,18 @@ async def async_setup_entry(
     entities = []
     api: RemoAPI = hass.data[DOMAIN][entry.entry_id]["api"]
     appliances: Appliances = hass.data[DOMAIN][entry.entry_id]["appliances"]
-    for properties in appliances.light:
-        light_signals = properties["light"]["buttons"]
-        one_button = None
-        if any(signal["name"] == "onoff" for signal in light_signals):
+    for appliance in appliances.light:
+        buttons = [button.name for button in appliance.light.buttons or []]
+        if BUTTON_ONOFF in buttons:
             one_button = True
-        elif any(signal["name"] == "on" for signal in light_signals) and any(
-            signal["name"] == "off" for signal in light_signals
-        ):
+        elif BUTTON_ON in buttons and BUTTON_OFF in buttons:
             one_button = False
         else:
             _LOGGER.critical(
                 "Unexpected light configuration; please contact the project maintainer"
             )
             raise UnexpectedLight
-        entities.append(
-            RemoLight(properties["id"], properties["nickname"], one_button, api)
-        )
+        entities.append(RemoLight(appliance.id, appliance.nickname, one_button, api))
     async_add_entities(entities)
 
 
@@ -90,8 +92,8 @@ class RemoLight(LightEntity):
     async def async_toggle(self, **kwargs: Any) -> None:
         self._attr_is_on = not self._attr_is_on
         if self.one_button:
-            await self.api.send_light_signal(self.light_id, "onoff")
+            await self.api.set_light(self.light_id, BUTTON_ONOFF)
         elif self._attr_is_on:
-            await self.api.send_light_signal(self.light_id, "on")
+            await self.api.set_light(self.light_id, BUTTON_ON)
         else:
-            await self.api.send_light_signal(self.light_id, "off")
+            await self.api.set_light(self.light_id, BUTTON_OFF)
