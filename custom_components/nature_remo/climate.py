@@ -307,7 +307,7 @@ class AirConditioner(
         self.data = data
         self.api = api
         self._attr_name = data.name
-        self._attr_unique_id = f"{data.name} @ {data.id}"
+        self._attr_unique_id = data.id
         self._attr_temperature_unit = data.temperature_unit
         self._attr_supported_features = data.feature_flag
         self._attr_hvac_modes = sorted(data.modes.keys())

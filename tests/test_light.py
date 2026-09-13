@@ -93,16 +93,6 @@ def report(coordinator: SimpleNamespace, *appliances: ApplianceResponse) -> None
     )
 
 
-def test_separate_buttons_are_not_toggle_only(api: FakeAPI) -> None:
-    """Two different buttons mean on and off are independently reachable."""
-    assert make_light(api, "on", "off")[0].toggle_only is False
-
-
-def test_one_button_for_both_is_toggle_only(api: FakeAPI) -> None:
-    """The same button for both is what makes a light toggle-only."""
-    assert make_light(api, "onoff", "onoff")[0].toggle_only is True
-
-
 async def test_separate_buttons_turn_on_sends_the_on_button(api: FakeAPI) -> None:
     """With a real on button, turning on sends it directly."""
     light, _, _ = make_light(api, "on", "off")
@@ -184,10 +174,48 @@ async def test_any_button_pair_may_be_chosen(api: FakeAPI) -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    ("on_button", "off_button"),
+    [
+        pytest.param("on", "off", id="separate_buttons"),
+        pytest.param("onoff", "onoff", id="toggle_only"),
+    ],
+)
+async def test_every_command_writes_the_new_state(
+    api: FakeAPI, on_button: str, off_button: str
+) -> None:
+    """A coordinator entity is not polled, so a command must write its state.
+
+    Nothing else would: Home Assistant only writes after a service call for
+    entities that poll, and the next report finds the state already matching.
+    """
+    light, writes, _ = make_light(api, on_button, off_button)
+    await light.async_turn_on()
+    assert len(writes) == 1
+    await light.async_turn_off()
+    assert len(writes) == 2
+    await light.async_toggle()
+    assert len(writes) == 3
+
+
+async def test_a_failed_command_leaves_the_state_alone(api: FakeAPI) -> None:
+    """A button that never reached the API must not flip the state."""
+
+    async def fail(appliance_id: str, button: str) -> None:
+        raise RuntimeError("unreachable")
+
+    light, writes, _ = make_light(api, "on", "off")
+    light.api.set_light = fail
+    with pytest.raises(RuntimeError):
+        await light.async_turn_on()
+    assert light.is_on is False
+    assert writes == []
+
+
 def test_unique_id_is_unchanged_by_the_button_choice(api: FakeAPI) -> None:
     """Existing entities must keep their id when buttons are reconfigured."""
-    assert make_light(api, "on", "off")[0].unique_id == "Test Light @ light-1"
-    assert make_light(api, "onoff", "onoff")[0].unique_id == "Test Light @ light-1"
+    assert make_light(api, "on", "off")[0].unique_id == "light-1"
+    assert make_light(api, "onoff", "onoff")[0].unique_id == "light-1"
 
 
 @pytest.mark.parametrize(
@@ -243,6 +271,7 @@ async def test_a_report_predating_our_command_is_ignored(api: FakeAPI) -> None:
     )
     await light.async_turn_on()
     assert light.is_on is True
+    writes.clear()
     # The response was captured before the command landed.
     report(coordinator, make_appliance(power="off", last_button=""))
     light._handle_coordinator_update()
