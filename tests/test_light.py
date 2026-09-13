@@ -214,8 +214,8 @@ async def test_a_failed_command_leaves_the_state_alone(api: FakeAPI) -> None:
 
 def test_unique_id_is_unchanged_by_the_button_choice(api: FakeAPI) -> None:
     """Existing entities must keep their id when buttons are reconfigured."""
-    assert make_light(api, "on", "off")[0].unique_id == "Test Light @ light-1"
-    assert make_light(api, "onoff", "onoff")[0].unique_id == "Test Light @ light-1"
+    assert make_light(api, "on", "off")[0].unique_id == "light-1"
+    assert make_light(api, "onoff", "onoff")[0].unique_id == "light-1"
 
 
 @pytest.mark.parametrize(

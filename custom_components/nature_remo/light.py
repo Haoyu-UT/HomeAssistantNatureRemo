@@ -88,7 +88,7 @@ class RemoLight(CoordinatorEntity, LightEntity):
         self.light_id = appliance.id
         self.api = api
         self._attr_name = appliance.nickname
-        self._attr_unique_id = f"{appliance.nickname} @ {appliance.id}"
+        self._attr_unique_id = appliance.id
         self.on_button = on_button
         self.off_button = off_button
         self._command_button: str | None = None
