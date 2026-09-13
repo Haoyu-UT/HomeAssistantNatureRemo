@@ -1,35 +1,35 @@
 {
-  "config": {
-    "abort": {
-      "already_configured": "Device is already configured"
-    },
-    "error": {
-      "invalid_token": "Invalid authentication",
-      "network_error": "Failed to connect",
-      "unknown": "Unexpected error",
-      "send_failed": "Failed to send the button. The API allows 30 requests per 5 minutes, so wait a moment before trying again."
-    },
-    "step": {
-      "user": {
-        "data": {
-          "token": "Token",
-          "polling_interval_sensor": "Polling interval (sec) for sensors",
-          "polling_interval_power_meter": "Polling interval (sec) for power meter"
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured"
         },
-        "description": "Please note that API rate limit is 30 times per 5 minutes. Polling for power meter will be not be excuted if no power meter exists."
-      },
-      "light": {
-        "title": "Buttons for {name}",
-        "data": {
-          "on_button": "Button that turns the light on",
-          "off_button": "Button that turns the light off",
-          "test_button": "Try a button"
+        "error": {
+            "invalid_token": "Invalid authentication",
+            "network_error": "Failed to connect",
+            "send_failed": "Failed to send the button. The API allows 30 requests per 5 minutes, so wait a moment before trying again.",
+            "unknown": "Unexpected error"
         },
-        "description": "Light {current} of {total}: {name}.\n\nChoose the button on the remote that turns this light on, and the one that turns it off. If the remote has only a single toggle button, choose that same button for both; the light can then only be toggled.\n\nNot sure which button does what? Use \"Try a button\" to send one and watch the light.",
-        "data_description": {
-          "test_button": "Choose a button and submit to send it to the light. The form comes back so you can keep trying; leave this empty and submit to save your choice."
+        "step": {
+            "light": {
+                "data": {
+                    "off_button": "Button that turns the light off",
+                    "on_button": "Button that turns the light on",
+                    "test_button": "Try a button"
+                },
+                "data_description": {
+                    "test_button": "Choose a button and submit to send it to the light. The form comes back so you can keep trying; leave this empty and submit to save your choice."
+                },
+                "description": "Light {current} of {total}: {name}.\n\nChoose the button on the remote that turns this light on, and the one that turns it off. If the remote has only a single toggle button, choose that same button for both; the light can then only be toggled.\n\nNot sure which button does what? Use \"Try a button\" to send one and watch the light.",
+                "title": "Buttons for {name}"
+            },
+            "user": {
+                "data": {
+                    "polling_interval_power_meter": "Polling interval (sec) for power meter",
+                    "polling_interval_sensor": "Polling interval (sec) for sensors",
+                    "token": "Token"
+                },
+                "description": "Please note that API rate limit is 30 times per 5 minutes. Polling for power meter will be not be excuted if no power meter exists."
+            }
         }
-      }
     }
-  }
 }

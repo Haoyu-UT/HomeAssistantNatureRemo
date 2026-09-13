@@ -96,11 +96,6 @@ class RemoLight(CoordinatorEntity, LightEntity):
         if appliance.light is not None:
             self._absorb_reported_state(appliance.light.state)
 
-    @property
-    def toggle_only(self) -> bool:
-        """Whether the same button was chosen for on and for off."""
-        return self.on_button == self.off_button
-
     def _may_predate_own_command(self, state: LightState) -> bool:
         """Whether a report could have been taken before our last command.
 
@@ -148,40 +143,36 @@ class RemoLight(CoordinatorEntity, LightEntity):
         if self._absorb_reported_state(appliance.light.state):
             self.async_write_ha_state()
 
-    async def _send(self, button: str) -> None:
-        """Press a button, remembering it so its report can be recognised."""
+    async def _send(self, button: str, is_on: bool) -> None:
+        """Press a button, then publish the power it is expected to leave.
+
+        The button is remembered so its report can be recognised. The state is
+        written here because a coordinator entity does not poll, so Home
+        Assistant no longer writes it after the service call returns; nor would
+        the next report, which finds the state already matching.
+        """
         self._command_button = button
         self._command_sent_at = dt_util.utcnow()
         await self.api.set_light(self.light_id, button)
+        self._attr_is_on = is_on
+        self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on the light.
 
-        With separate buttons the on button says what it does, so it is sent
-        directly.  A single toggle button can only be toggled, so the real
-        state is assumed to be off; use toggle instead where that matters.
+        With separate buttons the on button says what it does. A single toggle
+        button can only be toggled, so the real state is assumed to be off; use
+        toggle instead where that matters.
         """
-        if not self.toggle_only:
-            self._attr_is_on = True
-            await self._send(self.on_button)
-            return
-        if self.is_on:
-            self._attr_is_on = False
-        await self.async_toggle(**kwargs)
+        await self._send(self.on_button, True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the light.
 
-        The mirror of async_turn_on: sent directly where an off button exists,
-        otherwise the real state is assumed to be on and the light is toggled.
+        The mirror of async_turn_on: with a single toggle button the real state
+        is assumed to be on.
         """
-        if not self.toggle_only:
-            self._attr_is_on = False
-            await self._send(self.off_button)
-            return
-        if not self.is_on:
-            self._attr_is_on = True
-        await self.async_toggle(**kwargs)
+        await self._send(self.off_button, False)
 
     async def async_toggle(self, **kwargs: Any) -> None:
         """Toggle the light.
@@ -189,6 +180,6 @@ class RemoLight(CoordinatorEntity, LightEntity):
         When on and off are the same button this sends it either way, which is
         what toggling a single-button remote means.
         """
-        self._attr_is_on = not self._attr_is_on
-        button = self.on_button if self._attr_is_on else self.off_button
-        await self._send(button)
+        is_on = not self._attr_is_on
+        button = self.off_button if self._attr_is_on else self.on_button
+        await self._send(button, is_on)
