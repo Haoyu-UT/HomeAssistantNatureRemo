@@ -227,7 +227,7 @@ async def test_unauthorized_raises_auth_error(
 ) -> None:
     """A rejected token is reported as an auth failure, not a network one."""
     recorder.response = FakeResponse(status_code=401)
-    with pytest.raises(AuthError):
+    with pytest.raises(AuthError, match="access token"):
         await client.fetch_user()
 
 
@@ -237,7 +237,7 @@ async def test_unexpected_status_raises_network_error(
 ) -> None:
     """Any other unexpected status is a network error."""
     recorder.response = FakeResponse(status_code=status_code)
-    with pytest.raises(NetworkError):
+    with pytest.raises(NetworkError, match=rf"/1/users/me .*{status_code}"):
         await client.fetch_user()
 
 
@@ -246,7 +246,7 @@ async def test_transport_failure_raises_network_error(
 ) -> None:
     """A transport-level failure surfaces as a network error."""
     recorder.error = OSError("connection reset")
-    with pytest.raises(NetworkError):
+    with pytest.raises(NetworkError, match="Could not reach"):
         await client.fetch_user()
 
 

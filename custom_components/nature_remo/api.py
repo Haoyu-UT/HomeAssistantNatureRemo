@@ -160,11 +160,13 @@ class RemoAPI:
                     None, blocking_post, self.session, url, data or {}
                 )
         except Exception as err:
-            raise NetworkError from err
+            raise NetworkError("Could not reach the Nature Remo API") from err
         if response.status_code == 401:
-            raise AuthError
+            raise AuthError("Nature Remo rejected the access token")
         if response.status_code != 200:
-            raise NetworkError(f"HTTP response status code {response.status_code}")
+            raise NetworkError(
+                f"{endpoint.path} answered with HTTP status {response.status_code}"
+            )
         if endpoint.response is None:
             return None
         return _decode(endpoint, response.json())

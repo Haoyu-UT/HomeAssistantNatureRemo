@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+from functools import partial
 from types import SimpleNamespace
 from typing import Any
 
@@ -13,6 +15,7 @@ from custom_components.nature_remo.climate import (
     extract_ac_properties,
     extract_last_settings,
 )
+from custom_components.nature_remo.const import NetworkError
 from custom_components.nature_remo.models import ApplianceResponse
 from homeassistant.components.climate.const import HVACMode
 from homeassistant.const import UnitOfTemperature
@@ -151,3 +154,145 @@ def test_aircon_params_powers_off_with_the_fixed_button(
         mode_target_swingmodepair={HVACMode.COOL: cool.swingmodespairs[0]},
     )
     assert AirConditioner.aircon_params(entity).button == "power-off"
+
+
+class FakeAPI:
+    """Records the settings that would have been sent, or fails to send them."""
+
+    def __init__(self) -> None:
+        self.sent: list[Any] = []
+        self.error: Exception | None = None
+
+    async def set_aircon_settings(self, appliance_id: str, params: Any) -> None:
+        if self.error is not None:
+            raise self.error
+        self.sent.append(params)
+
+
+def another(options: list[Any], current: Any) -> Any:
+    """Pick an option a command would have to act on."""
+    return next(option for option in options if option != current)
+
+
+# Each entry settles on its value once, so that a retry repeats the same command.
+COMMANDS = {
+    "turn_off": lambda ac: ac.async_turn_off,
+    "hvac_mode": lambda ac: partial(ac.async_set_hvac_mode, HVACMode.HEAT),
+    "temperature": lambda ac: partial(
+        ac.async_set_temperature,
+        temperature=another(
+            ac.data.modes[ac.hvac_mode].temps_float, ac.target_temperature
+        ),
+    ),
+    "fan_mode": lambda ac: partial(
+        ac.async_set_fan_mode, another(ac.fan_modes, ac.fan_mode)
+    ),
+    "swing_mode": lambda ac: partial(
+        ac.async_set_swing_mode, another(ac.swing_modes, ac.swing_mode)
+    ),
+}
+
+
+def target_state(ac: AirConditioner) -> dict[str, Any]:
+    """Everything a command may change, spelled out independently of the code."""
+    return copy.deepcopy(
+        {
+            "hvac_mode": ac.hvac_mode,
+            "hvac_action": ac.hvac_action,
+            "last_hvac_mode": ac.last_hvac_mode,
+            "target_temperature": ac.target_temperature,
+            "target_temperature_low": ac.target_temperature_low,
+            "target_temperature_high": ac.target_temperature_high,
+            "target_temperature_step": ac.target_temperature_step,
+            "min_temp": ac.min_temp,
+            "max_temp": ac.max_temp,
+            "fan_mode": ac.fan_mode,
+            "fan_modes": ac.fan_modes,
+            "swing_mode": ac.swing_mode,
+            "swing_modes": ac.swing_modes,
+            "mode_target_temp_idx": ac.mode_target_temp_idx,
+            "mode_target_fan_mode": ac.mode_target_fan_mode,
+            "mode_target_swingmodepair": {
+                mode: str(pair) for mode, pair in ac.mode_target_swingmodepair.items()
+            },
+        }
+    )
+
+
+@pytest.fixture(name="api")
+def api_fixture() -> FakeAPI:
+    """An API that records instead of sending."""
+    return FakeAPI()
+
+
+@pytest.fixture(name="ac")
+async def ac_fixture(aircon: ApplianceResponse, api: FakeAPI) -> AirConditioner:
+    """An air conditioner already running, with its state writes recorded."""
+    data = extract_ac_properties(aircon, sensors=[])._replace(last_status=None)
+    ac = AirConditioner(data, api, SimpleNamespace(data=None))
+    ac.writes = []
+    ac.async_write_ha_state = lambda: ac.writes.append(None)
+    await ac.async_set_hvac_mode(HVACMode.COOL)
+    api.sent.clear()
+    ac.writes.clear()
+    return ac
+
+
+@pytest.mark.parametrize("prepare", COMMANDS.values(), ids=COMMANDS)
+async def test_a_failed_command_leaves_the_state_alone(
+    ac: AirConditioner, api: FakeAPI, prepare: Any
+) -> None:
+    """A setting that never reached the API must not be taken for applied.
+
+    The next poll writes the state regardless, and the API's unchanged timestamp
+    would not correct it, so anything left behind here reaches the user.
+    """
+    before = target_state(ac)
+    command = prepare(ac)
+    api.error = NetworkError("unreachable")
+    with pytest.raises(NetworkError):
+        await command()
+    assert target_state(ac) == before
+    assert ac.writes == []
+
+
+@pytest.mark.parametrize("prepare", COMMANDS.values(), ids=COMMANDS)
+async def test_a_failed_command_can_be_retried(
+    ac: AirConditioner, api: FakeAPI, prepare: Any
+) -> None:
+    """A retry is sent, rather than taken for a change that is already applied."""
+    command = prepare(ac)
+    api.error = NetworkError("unreachable")
+    with pytest.raises(NetworkError):
+        await command()
+    api.error = None
+    await command()
+    assert len(api.sent) == 1
+    assert len(ac.writes) == 1
+
+
+async def test_a_failed_first_command_leaves_the_state_alone(
+    aircon: ApplianceResponse, api: FakeAPI
+) -> None:
+    """Rolling back also works from the state an entity starts in."""
+    data = extract_ac_properties(aircon, sensors=[])._replace(last_status=None)
+    ac = AirConditioner(data, api, SimpleNamespace(data=None))
+    api.error = NetworkError("unreachable")
+    with pytest.raises(NetworkError):
+        await ac.async_set_hvac_mode(HVACMode.COOL)
+    assert ac.hvac_mode is HVACMode.OFF
+    assert ac.target_temperature == 0.0
+    assert ac.max_temp == 0.0
+
+
+async def test_settings_are_ignored_while_off(
+    ac: AirConditioner, api: FakeAPI
+) -> None:
+    """With the AC off there is nothing to send, which is not a failure."""
+    await ac.async_turn_off()
+    api.sent.clear()
+    before = target_state(ac)
+    await ac.async_set_fan_mode("anything")
+    await ac.async_set_swing_mode("anything")
+    assert api.sent == []
+    assert target_state(ac) == before

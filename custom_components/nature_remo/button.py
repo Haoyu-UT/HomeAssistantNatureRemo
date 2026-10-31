@@ -1,15 +1,11 @@
 """File for sending signal"""
-import logging
-
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
 
-from .const import DOMAIN, Appliance, NetworkError
+from .const import DOMAIN, Appliance
 from .select import LightSignalEntity, SignalEntity
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -40,9 +36,4 @@ class ApplianceEntity(ButtonEntity):
 
     async def async_press(self) -> None:
         """Press the button."""
-        try:
-            await self.signal_entity.send_signal()
-        except NetworkError as err:
-            _LOGGER.exception(err)
-        except Exception as err:
-            _LOGGER.exception(err)
+        await self.signal_entity.send_signal()
