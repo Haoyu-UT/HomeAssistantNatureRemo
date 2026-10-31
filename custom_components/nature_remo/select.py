@@ -2,15 +2,9 @@
 
 import logging
 
-import voluptuous as vol
-from homeassistant.components.select import (
-    ATTR_OPTION,
-    SERVICE_SELECT_OPTION,
-    SelectEntity,
-)
+from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
 
 from .api import RemoAPI
@@ -44,12 +38,6 @@ async def async_setup_entry(
     async_add_entities: entity_platform.AddEntitiesCallback,
 ) -> None:
     """Set up nature remo appliances from a config entry."""
-    platform = entity_platform.async_get_current_platform()
-    platform.async_register_entity_service(
-        SERVICE_SELECT_OPTION,
-        {vol.Required(ATTR_OPTION): cv.string},
-        "async_select_option",
-    )
     entities = []
     api: RemoAPI = hass.data[DOMAIN][entry.entry_id]["api"]
     appliances: Appliances = hass.data[DOMAIN][entry.entry_id]["appliances"]

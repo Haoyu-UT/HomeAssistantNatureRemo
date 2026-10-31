@@ -7,12 +7,10 @@ import logging
 from typing import Any, Optional
 
 import homeassistant.components.climate as Climate
-import homeassistant.helpers.config_validation as cv
-import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON, UnitOfTemperature
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_platform, restore_state
+from homeassistant.helpers import restore_state
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -183,41 +181,6 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up nature remo sensors from a config entry."""
-    platform = entity_platform.async_get_current_platform()
-
-    platform.async_register_entity_service(
-        SERVICE_TURN_ON, {}, AirConditioner.async_turn_on.__name__
-    )
-    platform.async_register_entity_service(
-        SERVICE_TURN_OFF, {}, AirConditioner.async_turn_off.__name__
-    )
-    platform.async_register_entity_service(
-        Climate.const.SERVICE_SET_HVAC_MODE,
-        {
-            vol.Required(Climate.const.ATTR_HVAC_MODE): vol.Coerce(
-                Climate.const.HVACMode
-            )
-        },
-        AirConditioner.async_set_hvac_mode.__name__,
-    )
-    platform.async_register_entity_service(
-        Climate.const.SERVICE_SET_TEMPERATURE,
-        Climate.SET_TEMPERATURE_SCHEMA,
-        Climate.async_service_temperature_set,
-        [Climate.const.ClimateEntityFeature.TARGET_TEMPERATURE],
-    )
-    platform.async_register_entity_service(
-        Climate.const.SERVICE_SET_FAN_MODE,
-        {vol.Required(Climate.const.ATTR_FAN_MODE): cv.string},
-        AirConditioner.async_set_fan_mode.__name__,
-        [Climate.ClimateEntityFeature.FAN_MODE],
-    )
-    platform.async_register_entity_service(
-        Climate.const.SERVICE_SET_SWING_MODE,
-        {vol.Required(Climate.const.ATTR_SWING_MODE): cv.string},
-        AirConditioner.async_set_swing_mode.__name__,
-        [Climate.ClimateEntityFeature.SWING_MODE],
-    )
     entities = []
     store = hass.data[DOMAIN][entry.entry_id]
     api: RemoAPI = store["api"]

@@ -1,7 +1,7 @@
 """File for sending signal"""
 import logging
 
-from homeassistant.components.button import SERVICE_PRESS, ButtonEntity
+from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_platform
@@ -18,12 +18,6 @@ async def async_setup_entry(
     async_add_entities: entity_platform.AddEntitiesCallback,
 ) -> None:
     """Set up nature remo appliances from a config entry."""
-    platform = entity_platform.async_get_current_platform()
-    platform.async_register_entity_service(
-        SERVICE_PRESS,
-        {},
-        ApplianceEntity._async_press_action.__name__,
-    )
     entities = []
     signal_entities = hass.data[DOMAIN][entry.entry_id]["signal_entities"]
     appliances = hass.data[DOMAIN][entry.entry_id]["signal_appliances"]
