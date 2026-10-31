@@ -1,7 +1,6 @@
 """File defining temperature sensor"""
 import datetime
 import logging
-import time
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -18,6 +17,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import RemoAPI
@@ -239,8 +239,15 @@ class PowerEnergyMeter(CoordinatorEntity, SensorEntity):
                 # reseted since last update
                 self._attr_native_value = self.max_value
                 self.async_write_ha_state()
-                time.sleep(1.0)
-            self._attr_native_value = value
+
+                @callback
+                def publish(_now: datetime.datetime) -> None:
+                    self._attr_native_value = value
+                    self.async_write_ha_state()
+
+                self.async_on_remove(async_call_later(self.hass, 1.0, publish))
+            else:
+                self._attr_native_value = value
 
     @callback
     def _handle_coordinator_update(self) -> None:

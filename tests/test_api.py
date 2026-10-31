@@ -19,6 +19,7 @@ from custom_components.nature_remo.models import (
     AirConParams,
     ApplianceResponse,
     ApplianceResponses,
+    LightParams,
 )
 
 
@@ -248,6 +249,55 @@ async def test_transport_failure_raises_network_error(
     recorder.error = OSError("connection reset")
     with pytest.raises(NetworkError, match="Could not reach"):
         await client.fetch_user()
+
+
+def test_every_wire_type_has_an_adapter() -> None:
+    """A type left out of the table would fail its first request."""
+    responses = [
+        value.response
+        for value in vars(api_module).values()
+        if isinstance(value, api_module.Endpoint) and value.response is not None
+    ]
+    assert responses
+    for wire_type in (*responses, AirConParams, LightParams):
+        assert wire_type in api_module._ADAPTERS
+
+
+async def test_requests_build_no_adapter(
+    client: RemoAPI,
+    recorder: Recorder,
+    appliances_payload: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Requests run on the event loop, where building one would block it.
+
+    The first TypeAdapter built scans every installed package for plugins.
+    """
+
+    def fail(*args: Any) -> None:
+        pytest.fail("built a TypeAdapter while handling a request")
+
+    monkeypatch.setattr(api_module, "TypeAdapter", fail)
+    light = next(item for item in appliances_payload if item["type"] == "LIGHT")
+    aircon = next(item for item in appliances_payload if item["type"] == "AC")
+
+    recorder.response = FakeResponse(payload=appliances_payload)
+    await client.fetch_appliances()
+    recorder.response = FakeResponse(payload=light["light"]["state"])
+    await client.set_light("light-1", "on")
+    recorder.response = FakeResponse(payload=aircon["settings"])
+    await client.set_aircon_settings(
+        "ac-1",
+        AirConParams(
+            air_direction="1",
+            air_direction_h="",
+            air_volume="auto",
+            button="",
+            operation_mode="cool",
+            temperature="26",
+            temperature_unit="c",
+        ),
+    )
 
 
 def test_group_appliances(appliances_payload: list[dict[str, Any]]) -> None:
