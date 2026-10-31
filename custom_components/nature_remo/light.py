@@ -5,7 +5,6 @@ from typing import Any
 import homeassistant.util.dt as dt_util
 from homeassistant.components.light import ColorMode, LightEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import SERVICE_TOGGLE, SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -33,22 +32,6 @@ async def async_setup_entry(
     async_add_entities: entity_platform.AddEntitiesCallback,
 ) -> None:
     """Set up nature remo appliances from a config entry."""
-    platform = entity_platform.async_get_current_platform()
-    platform.async_register_entity_service(
-        SERVICE_TURN_ON,
-        {},
-        RemoLight.async_turn_on.__name__,
-    )
-    platform.async_register_entity_service(
-        SERVICE_TURN_OFF,
-        {},
-        RemoLight.async_turn_off.__name__,
-    )
-    platform.async_register_entity_service(
-        SERVICE_TOGGLE,
-        {},
-        RemoLight.async_toggle.__name__,
-    )
     entities = []
     entry_storage: dict = hass.data[DOMAIN][entry.entry_id]
     api: RemoAPI = entry_storage["api"]

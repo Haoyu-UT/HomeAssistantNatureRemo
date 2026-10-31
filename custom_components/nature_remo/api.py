@@ -8,7 +8,6 @@ See script/generate_models.py.
 from __future__ import annotations
 
 import asyncio
-import functools
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -58,15 +57,21 @@ SET_AIRCON_SETTINGS = Endpoint(
 )
 SET_LIGHT = Endpoint("post", "/1/appliances/{applianceid}/light", LightState)
 
-
-@functools.cache
-def _adapter(annotation: Any) -> TypeAdapter:
-    """Return the validator for a wire type, built once per type.
-
-    Building a TypeAdapter compiles a schema, so the cache matters: the polling
-    loop decodes the appliance list on every update.
-    """
-    return TypeAdapter(annotation)
+# Built here rather than on first use: this module is imported off the event
+# loop, where requests are handled, and building a TypeAdapter compiles a schema
+# and, for the first one, scans every installed package for pydantic plugins.
+_ADAPTERS = {
+    wire_type: TypeAdapter(wire_type)
+    for wire_type in (
+        GET_USER.response,
+        GET_DEVICES.response,
+        GET_APPLIANCES.response,
+        SET_AIRCON_SETTINGS.response,
+        SET_LIGHT.response,
+        AirConParams,
+        LightParams,
+    )
+}
 
 
 def _decode(endpoint: Endpoint, payload: Any) -> Any:
@@ -78,7 +83,7 @@ def _decode(endpoint: Endpoint, payload: Any) -> Any:
     time.
     """
     try:
-        return _adapter(endpoint.response).validate_python(payload)
+        return _ADAPTERS[endpoint.response].validate_python(payload)
     except ValidationError as err:
         raise DecodeError(
             f"{endpoint.path} served a payload its specification does not describe"
@@ -87,7 +92,7 @@ def _decode(endpoint: Endpoint, payload: Any) -> Any:
 
 def _form_body(params: Any) -> dict[str, str]:
     """Flatten a request-parameter model into form fields, omitting unset ones."""
-    return _adapter(type(params)).dump_python(params, exclude_none=True)
+    return _ADAPTERS[type(params)].dump_python(params, exclude_none=True)
 
 
 def group_appliances(appliances: list[ApplianceResponse]) -> Appliances:
@@ -160,11 +165,13 @@ class RemoAPI:
                     None, blocking_post, self.session, url, data or {}
                 )
         except Exception as err:
-            raise NetworkError from err
+            raise NetworkError("Could not reach the Nature Remo API") from err
         if response.status_code == 401:
-            raise AuthError
+            raise AuthError("Nature Remo rejected the access token")
         if response.status_code != 200:
-            raise NetworkError(f"HTTP response status code {response.status_code}")
+            raise NetworkError(
+                f"{endpoint.path} answered with HTTP status {response.status_code}"
+            )
         if endpoint.response is None:
             return None
         return _decode(endpoint, response.json())

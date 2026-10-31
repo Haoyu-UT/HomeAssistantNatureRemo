@@ -40,6 +40,21 @@ You are then asked, for each of your lights, which button on its remote turns th
 ## Upgrade
 In addtion to upgrading the package itself, **it is required to restart HA.** \(Migration of outdated configurations is automatically handled.\)
 
+### Upgrading to 2.0.0
+The `nature_remo.*` services have been removed. Automations and scripts calling them must use the standard Home Assistant services instead; your entities are unchanged.
+
+| Removed service | Use instead |
+| --- | --- |
+| `nature_remo.set_temperature` | `climate.set_temperature` |
+| `nature_remo.set_hvac_mode` | `climate.set_hvac_mode` |
+| `nature_remo.set_fan_mode` | `climate.set_fan_mode` |
+| `nature_remo.set_swing_mode` | `climate.set_swing_mode` |
+| `nature_remo.turn_on` | `light.turn_on` |
+| `nature_remo.turn_off` | `light.turn_off` |
+| `nature_remo.toggle` | `light.toggle` |
+| `nature_remo.press` | `button.press` |
+| `nature_remo.select_option` | `select.select_option` |
+
 ## Note
 ### Appliance changes from Nature Home app
 **It is recommended that you finish all configurations on your smartphone app before using this integration.**

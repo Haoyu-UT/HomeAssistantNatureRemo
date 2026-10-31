@@ -4,15 +4,14 @@ import copy
 import datetime
 import itertools
 import logging
+from collections.abc import Callable
 from typing import Any, Optional
 
 import homeassistant.components.climate as Climate
-import homeassistant.helpers.config_validation as cv
-import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import SERVICE_TURN_OFF, SERVICE_TURN_ON, UnitOfTemperature
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_platform, restore_state
+from homeassistant.helpers import restore_state
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -34,6 +33,26 @@ from .models import AirConParams, AirconSettingsResponse, ApplianceResponse
 from .sensor import HumiditySensor, TemperatureSensor
 
 _LOGGER = logging.getLogger(__name__)
+
+# What a command changes on the entity, and so what a failed one has to restore.
+COMMAND_STATE = (
+    "_attr_hvac_mode",
+    "_attr_hvac_action",
+    "_attr_target_temperature",
+    "_attr_target_temperature_low",
+    "_attr_target_temperature_high",
+    "_attr_target_temperature_step",
+    "_attr_min_temp",
+    "_attr_max_temp",
+    "_attr_fan_mode",
+    "_attr_fan_modes",
+    "_attr_swing_mode",
+    "_attr_swing_modes",
+    "last_hvac_mode",
+    "mode_target_temp_idx",
+    "mode_target_fan_mode",
+    "mode_target_swingmodepair",
+)
 
 
 def extract_last_settings(settings: AirconSettingsResponse) -> ACStatus:
@@ -183,41 +202,6 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up nature remo sensors from a config entry."""
-    platform = entity_platform.async_get_current_platform()
-
-    platform.async_register_entity_service(
-        SERVICE_TURN_ON, {}, AirConditioner.async_turn_on.__name__
-    )
-    platform.async_register_entity_service(
-        SERVICE_TURN_OFF, {}, AirConditioner.async_turn_off.__name__
-    )
-    platform.async_register_entity_service(
-        Climate.const.SERVICE_SET_HVAC_MODE,
-        {
-            vol.Required(Climate.const.ATTR_HVAC_MODE): vol.Coerce(
-                Climate.const.HVACMode
-            )
-        },
-        AirConditioner.async_set_hvac_mode.__name__,
-    )
-    platform.async_register_entity_service(
-        Climate.const.SERVICE_SET_TEMPERATURE,
-        Climate.SET_TEMPERATURE_SCHEMA,
-        Climate.async_service_temperature_set,
-        [Climate.const.ClimateEntityFeature.TARGET_TEMPERATURE],
-    )
-    platform.async_register_entity_service(
-        Climate.const.SERVICE_SET_FAN_MODE,
-        {vol.Required(Climate.const.ATTR_FAN_MODE): cv.string},
-        AirConditioner.async_set_fan_mode.__name__,
-        [Climate.ClimateEntityFeature.FAN_MODE],
-    )
-    platform.async_register_entity_service(
-        Climate.const.SERVICE_SET_SWING_MODE,
-        {vol.Required(Climate.const.ATTR_SWING_MODE): cv.string},
-        AirConditioner.async_set_swing_mode.__name__,
-        [Climate.ClimateEntityFeature.SWING_MODE],
-    )
     entities = []
     store = hass.data[DOMAIN][entry.entry_id]
     api: RemoAPI = store["api"]
@@ -382,6 +366,29 @@ class AirConditioner(
         await self.api.set_aircon_settings(self.data.id, self.aircon_params())
         self.last_update_timestamp = datetime.datetime.now(datetime.timezone.utc)
 
+    async def _apply(self, change: Callable[[], None]) -> None:
+        """Change the target state and send it, undoing the change if sending fails.
+
+        The request is built from the entity, so the change has to come first.
+        Left in place after a failure it would look applied: the next poll writes
+        the state, the API's timestamp has not moved to correct it, and a retry
+        would find nothing to change. A command that did land despite failing is
+        put right by that next poll, as its timestamp is then newer.
+        """
+        saved = {
+            name: copy.copy(getattr(self, name))
+            for name in COMMAND_STATE
+            if hasattr(self, name)
+        }
+        change()
+        try:
+            await self.push_aircon_params()
+        except Exception:
+            for name, value in saved.items():
+                setattr(self, name, value)
+            raise
+        self.async_write_ha_state()
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
@@ -400,35 +407,38 @@ class AirConditioner(
         await self.async_set_hvac_mode(self.last_hvac_mode)
 
     async def async_turn_off(self) -> None:
-        self._attr_hvac_mode = Climate.const.HVACMode.OFF
-        self._attr_hvac_action = HVAC_MODE_ACTION_MAP[self.hvac_mode]
-        self._attr_target_temperature = 0.0
-        self._attr_min_temp = 0.0
-        self._attr_max_temp = 0.0
-        await self.push_aircon_params()
-        self.async_write_ha_state()
+        def change() -> None:
+            self._attr_hvac_mode = Climate.const.HVACMode.OFF
+            self._attr_hvac_action = HVAC_MODE_ACTION_MAP[self.hvac_mode]
+            self._attr_target_temperature = 0.0
+            self._attr_min_temp = 0.0
+            self._attr_max_temp = 0.0
+
+        await self._apply(change)
 
     async def async_set_hvac_mode(self, hvac_mode: Climate.const.HVACMode) -> None:
         if hvac_mode == Climate.const.HVACMode.OFF:
             await self.async_turn_off()
         elif hvac_mode != self.hvac_mode and hvac_mode in self.hvac_modes:
             modespec: ModeSpec = self.data.modes[hvac_mode]
-            self.last_hvac_mode = self._attr_hvac_mode = hvac_mode
-            self._attr_hvac_action = HVAC_MODE_ACTION_MAP[hvac_mode]
-            self._attr_fan_modes = modespec.fan_modes
-            self._attr_target_temperature_low = modespec.low_temp
-            self._attr_target_temperature_high = modespec.high_temp
-            self._attr_target_temperature_step = modespec.step
-            self._attr_min_temp = min(modespec.temps_float)
-            self._attr_max_temp = max(modespec.temps_float)
-            self._attr_swing_modes = list(map(str, modespec.swingmodespairs))
-            self._attr_fan_mode = self.mode_target_fan_mode[hvac_mode]
-            self._attr_target_temperature = modespec.temps_float[
-                self.mode_target_temp_idx[hvac_mode]
-            ]
-            self._attr_swing_mode = str(self.mode_target_swingmodepair[hvac_mode])
-            await self.push_aircon_params()
-            self.async_write_ha_state()
+
+            def change() -> None:
+                self.last_hvac_mode = self._attr_hvac_mode = hvac_mode
+                self._attr_hvac_action = HVAC_MODE_ACTION_MAP[hvac_mode]
+                self._attr_fan_modes = modespec.fan_modes
+                self._attr_target_temperature_low = modespec.low_temp
+                self._attr_target_temperature_high = modespec.high_temp
+                self._attr_target_temperature_step = modespec.step
+                self._attr_min_temp = min(modespec.temps_float)
+                self._attr_max_temp = max(modespec.temps_float)
+                self._attr_swing_modes = list(map(str, modespec.swingmodespairs))
+                self._attr_fan_mode = self.mode_target_fan_mode[hvac_mode]
+                self._attr_target_temperature = modespec.temps_float[
+                    self.mode_target_temp_idx[hvac_mode]
+                ]
+                self._attr_swing_mode = str(self.mode_target_swingmodepair[hvac_mode])
+
+            await self._apply(change)
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         if self.hvac_mode == Climate.const.HVACMode.OFF:
@@ -445,28 +455,34 @@ class AirConditioner(
         )
         new_temp = mode_temps_float[new_temp_idx]
         if new_temp != self.target_temperature:
-            self._attr_target_temperature = new_temp
-            self.mode_target_temp_idx[self.hvac_mode] = new_temp_idx
-            await self.push_aircon_params()
-            self.async_write_ha_state()
+
+            def change() -> None:
+                self._attr_target_temperature = new_temp
+                self.mode_target_temp_idx[self.hvac_mode] = new_temp_idx
+
+            await self._apply(change)
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         if self.hvac_mode == Climate.const.HVACMode.OFF:
             return
         if fan_mode != self.fan_mode and fan_mode in self.fan_modes:
-            self._attr_fan_mode = fan_mode
-            self.mode_target_fan_mode[self.hvac_mode] = fan_mode
-            await self.push_aircon_params()
-            self.async_write_ha_state()
+
+            def change() -> None:
+                self._attr_fan_mode = fan_mode
+                self.mode_target_fan_mode[self.hvac_mode] = fan_mode
+
+            await self._apply(change)
 
     async def async_set_swing_mode(self, swing_mode: str) -> None:
         if self.hvac_mode == Climate.const.HVACMode.OFF:
             return
         if swing_mode != self.swing_mode and swing_mode in self.swing_modes:
             modespec: ModeSpec = self.data.modes[self.hvac_mode]
-            self._attr_swing_mode = swing_mode
-            self.mode_target_swingmodepair[self.hvac_mode] = next(
-                p for p in modespec.swingmodespairs if str(p) == swing_mode
-            )
-            await self.push_aircon_params()
-            self.async_write_ha_state()
+
+            def change() -> None:
+                self._attr_swing_mode = swing_mode
+                self.mode_target_swingmodepair[self.hvac_mode] = next(
+                    p for p in modespec.swingmodespairs if str(p) == swing_mode
+                )
+
+            await self._apply(change)
